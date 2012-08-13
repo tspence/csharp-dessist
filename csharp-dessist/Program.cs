@@ -30,6 +30,8 @@ namespace csharp_dessist
             set.IgnoreWhitespace = true;
             SsisObject o = new SsisObject();
 
+            // TODO: Should read the dtproj file instead of the dtsx file, then produce multiple classes, one for each .DTSX file
+
             // Read in the file, one element at a time
             XmlDocument xd = new XmlDocument();
             xd.Load(ssis_filename);

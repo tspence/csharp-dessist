@@ -9,6 +9,8 @@ namespace csharp_dessist
 {
     public class SsisObject
     {
+        private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
+
         /// <summary>
         /// The XML node type of this object
         /// </summary>
@@ -49,7 +51,7 @@ namespace csharp_dessist
         /// </summary>
         public string ContentValue;
 
-
+        #region Shortcuts
         /// <summary>
         /// Set a property
         /// </summary>
@@ -61,6 +63,7 @@ namespace csharp_dessist
                 DtsObjectName = prop_value;
             } else if (prop_name == "DTSID") {
                 DtsId = Guid.Parse(prop_value);
+                _guid_lookup[DtsId] = this;
             } else if (prop_name == "Description") {
                 Description = prop_value;
             } else {
@@ -76,7 +79,9 @@ namespace csharp_dessist
         {
             return (from SsisObject o in Children where o.DtsObjectType == objectname select o).FirstOrDefault();
         }
+        #endregion
 
+        #region Translate this object into C# code
         /// <summary>
         /// Produce this variable to the current stream
         /// </summary>
@@ -123,17 +128,24 @@ namespace csharp_dessist
 
             // TODO: Is there an exception handler?  How many types of event handlers are there?
             // TODO: Check precedence constraints
-            // TODO: Ignore ObjectData elements; they are worthless wrapper elements
             // TODO: Create a general purpose lookup of DTSID objects
 
             // Function body
             foreach (SsisObject o in Children) {
 
+                // Is this a dummy "Object Data" thing?  If so ignore it and delve deeper
+                SsisObject childobj = o;
+                if (childobj.DtsObjectType == "DTS:ObjectData") {
+                    childobj = childobj.Children[0];
+                }
+
                 // For variables, emit them within this function
-                if (o.DtsObjectType == "DTS:Variable") {
-                    EmitVariable(indent_depth + 4, false, sw);
+                if (childobj.DtsObjectType == "DTS:Variable") {
+                    childobj.EmitVariable(indent_depth + 4, false, sw);
                 } else if (o.DtsObjectType == "DTS:Executable") {
-                    EmitFunctionCall(o, indent_depth + 4, sw);
+                    childobj.EmitFunctionCall(indent_depth + 4, sw);
+                } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
+                    childobj.EmitSqlStatement(indent_depth + 4, sw);
                 } else {
                     Console.WriteLine("Help!");
                 }
@@ -155,17 +167,51 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="indent"></param>
         /// <param name="sw"></param>
-        private void EmitFunctionCall(SsisObject executable_to_call, int indent_depth, StreamWriter sw)
+        private void EmitFunctionCall(int indent_depth, StreamWriter sw)
         {
             string indent = new String(' ', indent_depth);
 
-            sw.WriteLine(String.Format(@"{0}{1}();", indent, FixFunctionName(executable_to_call.DtsObjectName)));
+            sw.WriteLine(String.Format(@"{0}{1}();", indent, FixFunctionName(DtsObjectName)));
         }
 
+        /// <summary>
+        /// Write out an SQL statement
+        /// </summary>
+        /// <param name="indent_depth"></param>
+        /// <param name="sw"></param>
+        private void EmitSqlStatement(int indent_depth, StreamWriter sw)
+        {
+            string indent = new String(' ', indent_depth);
+
+            // Retrieve the connection string object
+            string conn_guid_str = null;
+            Attributes.TryGetValue("SQLTask:Connection", out conn_guid_str);
+            SsisObject connobj = null;
+            _guid_lookup.TryGetValue(Guid.Parse(conn_guid_str), out connobj);
+            string connstr = connobj.DtsObjectName;//connobj.Children[0].Children[0].Properties["ConnectionString"];
+
+            // Retrieve the SQL String
+            string sql = Attributes["SQLTask:SqlStatementSource"];
+
+            // Write the using clause for the connection
+            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""]])) {{", indent, connstr);
+            sw.WriteLine(@"{0}    conn.Open();", indent);
+            sw.WriteLine(@"{0}    string sql = @""{1}"";", indent, sql.Replace("\"","\"\"").Trim());
+            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(sql, conn)) {{", indent);
+            sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
+            sw.WriteLine(@"{0}        DataSet ds = new DataSet();", indent);
+            sw.WriteLine(@"{0}        ds.Load(dr);", indent);
+            sw.WriteLine(@"{0}    }}", indent);
+            sw.WriteLine(@"{0}}}", indent);
+        }
+        #endregion
+
+        #region Helper functions
         private static string FixFunctionName(string str)
         {
             Regex rgx = new Regex("[^a-zA-Z0-9]");
             return rgx.Replace(str, "_");
         }
+        #endregion
     }
 }
