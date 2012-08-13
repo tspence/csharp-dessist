@@ -1,0 +1,5 @@
+C:\svn\csharp-dessist\csharp-dessist\csharp-dessist\bin\Debug\csharp-dessist.exe
+C:\svn\csharp-dessist\csharp-dessist\csharp-dessist\bin\Debug\csharp-dessist.pdb
+C:\svn\csharp-dessist\csharp-dessist\csharp-dessist\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\svn\csharp-dessist\csharp-dessist\csharp-dessist\obj\x86\Debug\csharp-dessist.exe
+C:\svn\csharp-dessist\csharp-dessist\csharp-dessist\obj\x86\Debug\csharp-dessist.pdb
