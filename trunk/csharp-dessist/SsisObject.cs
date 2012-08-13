@@ -146,6 +146,10 @@ namespace csharp_dessist
                     childobj.EmitFunctionCall(indent_depth + 4, sw);
                 } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
                     childobj.EmitSqlStatement(indent_depth + 4, sw);
+
+                // TODO: Handle "pipeline" objects
+                } else if (childobj.DtsObjectType == "pipeline") {
+                    childobj.EmitPipeline(indent_depth + 4, sw);
                 } else {
                     Console.WriteLine("Help!");
                 }
@@ -160,6 +164,11 @@ namespace csharp_dessist
                     o.EmitFunction(indent_depth, sw);
                 }
             }
+        }
+
+        private void EmitPipeline(int p, StreamWriter sw)
+        {
+            //TODO: Read data in from the first component and write it out to the second component
         }
 
         /// <summary>
@@ -188,7 +197,7 @@ namespace csharp_dessist
             Attributes.TryGetValue("SQLTask:Connection", out conn_guid_str);
             SsisObject connobj = null;
             _guid_lookup.TryGetValue(Guid.Parse(conn_guid_str), out connobj);
-            string connstr = connobj.DtsObjectName;//connobj.Children[0].Children[0].Properties["ConnectionString"];
+            string connstr = connobj.DtsObjectName;
 
             // Retrieve the SQL String
             string sql = Attributes["SQLTask:SqlStatementSource"];
@@ -197,6 +206,9 @@ namespace csharp_dessist
             sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""]])) {{", indent, connstr);
             sw.WriteLine(@"{0}    conn.Open();", indent);
             sw.WriteLine(@"{0}    string sql = @""{1}"";", indent, sql.Replace("\"","\"\"").Trim());
+
+            // TODO: SQL Parameters should go in here
+
             sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(sql, conn)) {{", indent);
             sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
             sw.WriteLine(@"{0}        DataSet ds = new DataSet();", indent);
