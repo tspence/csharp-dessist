@@ -50,7 +50,7 @@ namespace csharp_dessist
         {
             // First find all the connection strings and write them to an app.config file
             var connstrings = from SsisObject c in o.Children where c.DtsObjectType == "DTS:ConnectionManager" select c;
-            WriteAppConfig(connstrings, Path.Combine(output_folder, "app.config"));
+            ConnectionWriter.WriteAppConfig(connstrings, Path.Combine(output_folder, "app.config"));
 
             // Next, write all the executable functions to the main file
             var functions = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Executable" select c;
@@ -76,6 +76,7 @@ namespace csharp_dessist
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Data.OleDb;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -133,49 +134,6 @@ namespace ");
 #endregion
     }
 }");
-            }
-        }
-
-        /// <summary>
-        /// Write an app.config file with the specified settings
-        /// </summary>
-        /// <param name="connstrings"></param>
-        private static void WriteAppConfig(IEnumerable<SsisObject> connstrings, string filename)
-        {
-            using (StreamWriter sw = new StreamWriter(filename, false, Encoding.UTF8)) {
-
-                // Write the header
-                sw.WriteLine(@"<?xml version=""1.0"" encoding=""utf-8""?>");
-                sw.WriteLine("<configuration>");
-                sw.WriteLine("  <appSettings>");
-
-                // Write each one in turn
-                foreach (SsisObject connstr in connstrings) {
-                    string s = "Not Found";
-                    var v = connstr.GetChildByType("DTS:ObjectData");
-                    if (v != null) {
-
-                        // Look for a SQL Connection string
-                        var v2 = v.GetChildByType("DTS:ConnectionManager");
-                        if (v2 != null) {
-                            v2.Properties.TryGetValue("ConnectionString", out s);
-
-                            // If not, look for an SMTP connection string
-                        } else {
-                            v2 = v.GetChildByType("SmtpConnectionManager");
-                            if (v2 != null) {
-                                v2.Attributes.TryGetValue("ConnectionString", out s);
-                            } else {
-                                Console.WriteLine("Help");
-                            }
-                        }
-                    }
-                    sw.WriteLine(String.Format(@"    <add key=""{0}"" value=""{1}"" />", connstr.DtsObjectName, s));
-                }
-
-                // Write the footer
-                sw.WriteLine("  </appSettings>");
-                sw.WriteLine("</configuration>");
             }
         }
         #endregion

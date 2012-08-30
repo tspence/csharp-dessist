@@ -10,8 +10,6 @@ namespace csharp_dessist
 {
     public class SsisObject
     {
-        private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
-
         /// <summary>
         /// The XML node type of this object
         /// </summary>
@@ -57,6 +55,7 @@ namespace csharp_dessist
         private List<LineageObject> _lineage_columns = new List<LineageObject>();
 
         #region Shortcuts
+
         /// <summary>
         /// Set a property
         /// </summary>
@@ -217,7 +216,9 @@ namespace csharp_dessist
         private void EmitPipelineWriter(string indent, StreamWriter sw)
         {
             // Get the connection string GUID: it's this.connections.connection
-            string connstr = GetConnectionStringName(this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"]);
+            string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
+            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
+            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
             // It's our problem to produce the SQL statement, because this writer uses calculated data!
             StringBuilder sql = new StringBuilder();
@@ -270,14 +271,14 @@ namespace csharp_dessist
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             sw.WriteLine(@"{0}    conn.Open();", indent);
 
             // TODO: SQL Parameters should go in here
 
             // This is the laziest possible way to do this insert - may want to improve it later
             sw.WriteLine(@"{0}    for (int row = 0; row < row_count; row++) {{", indent);
-            sw.WriteLine(@"{0}        using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_resource_name);
+            sw.WriteLine(@"{0}        using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
             sw.WriteLine(paramsetup);
             sw.WriteLine(@"{0}            cmd.ExecuteNonQuery();", indent);
             sw.WriteLine(@"{0}        }}", indent);
@@ -312,7 +313,9 @@ namespace csharp_dessist
         private void EmitPipelineReader(string indent, StreamWriter sw)
         {
             // Get the connection string GUID: it's this.connections.connection
-            string connstr = GetConnectionStringName(this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"]);
+            string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
+            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
+            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
             // Get the SQL statement
             string sql = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "SqlCommand").ContentValue;
@@ -333,10 +336,10 @@ namespace csharp_dessist
             }
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             sw.WriteLine(@"{0}    conn.Open();", indent);
-            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_resource_name);
-            sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
+            sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+            sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
             sw.WriteLine(@"{0}        component{1}.Load(dr);", indent, this.Attributes["id"]);
             sw.WriteLine(@"{0}        dr.Close();", indent);
             sw.WriteLine(@"{0}    }}", indent);
@@ -364,7 +367,9 @@ namespace csharp_dessist
         private void EmitSqlStatement(string indent, StreamWriter sw)
         {
             // Retrieve the connection string object
-            string connstr = GetConnectionStringName(Attributes["SQLTask:Connection"]);
+            string conn_guid = Attributes["SQLTask:Connection"];
+            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
+            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
             // Retrieve the SQL String and put it in a resource
             string sql_attr_name = ResourceWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
@@ -372,13 +377,13 @@ namespace csharp_dessist
             // Write the using clause for the connection
             sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
             sw.WriteLine(@"", indent, connstr);
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             sw.WriteLine(@"{0}    conn.Open();", indent);
 
             // TODO: SQL Parameters should go in here
 
-            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_attr_name);
-            sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
+            sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
+            sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
             sw.WriteLine(@"{0}        dt = new DataTable();", indent);
             sw.WriteLine(@"{0}        dt.Load(dr);", indent);
             sw.WriteLine(@"{0}        dr.Close();", indent);
@@ -397,19 +402,6 @@ namespace csharp_dessist
             } else {
                 return obj.DtsObjectName;
             }
-        }
-
-        /// <summary>
-        /// Get the connection string name when given a GUID
-        /// </summary>
-        /// <param name="conn_guid_str"></param>
-        /// <returns></returns>
-        private string GetConnectionStringName(string conn_guid_str)
-        {
-            SsisObject connobj = null;
-            _guid_lookup.TryGetValue(Guid.Parse(conn_guid_str), out connobj);
-            string connstr = connobj.DtsObjectName;
-            return connstr;
         }
         #endregion
 
@@ -446,6 +438,11 @@ namespace csharp_dessist
             return null;
         }
 
+        private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
+        public static SsisObject GetObjectByGuid(Guid g)
+        {
+            return _guid_lookup[g];
+        }
         #endregion
     }
 }
