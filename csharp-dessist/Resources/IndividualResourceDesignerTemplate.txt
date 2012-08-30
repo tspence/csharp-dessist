@@ -1,0 +1,5 @@
+        internal static string @@RESNAME@@ {
+            get {
+                return ResourceManager.GetString("@@RESNAME@@", resourceCulture);
+            }
+        }

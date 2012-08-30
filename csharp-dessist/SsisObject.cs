@@ -46,6 +46,7 @@ namespace csharp_dessist
         /// List of child elements in SSIS
         /// </summary>
         public List<SsisObject> Children = new List<SsisObject>();
+        public SsisObject Parent = null;
 
         /// <summary>
         /// Save the content value of a complex object
@@ -135,7 +136,7 @@ namespace csharp_dessist
             }
 
             // Function intro
-            sw.WriteLine(String.Format("{0}public static void {1}()\n        {{\n", indent, FixFunctionName(DtsObjectName)));
+            sw.WriteLine(String.Format("{0}public static void {1}(){2}        {{{2}", indent, FixFunctionName(DtsObjectName), Environment.NewLine));
 
             // TODO: Is there an exception handler?  How many types of event handlers are there?
             // TODO: Check precedence constraints
@@ -258,20 +259,20 @@ namespace csharp_dessist
             sql.Append(colnames.ToString());
             sql.Append(") VALUES ");
             sql.Append(varnames.ToString());
+            string sql_resource_name = ResourceWriter.AddSqlResource(GetParentDtsName() + "_WritePipe", sql.ToString());
 
             // Produce a data set that we're going to process - name it after ourselves
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""]])) {{", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
             sw.WriteLine(@"{0}    conn.Open();", indent);
-            sw.WriteLine(@"{0}    string sql = @""{1}"";", indent, sql.ToString().Replace("\"", "\"\"").Trim());
 
             // TODO: SQL Parameters should go in here
 
             // This is the laziest possible way to do this insert - may want to improve it later
             sw.WriteLine(@"{0}    for (int row = 0; row < row_count; row++) {{", indent);
-            sw.WriteLine(@"{0}        using (var cmd = new SqlCommand(sql, conn)) {{", indent);
+            sw.WriteLine(@"{0}        using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_resource_name);
             sw.WriteLine(paramsetup);
             sw.WriteLine(@"{0}            cmd.ExecuteNonQuery();", indent);
             sw.WriteLine(@"{0}        }}", indent);
@@ -311,6 +312,7 @@ namespace csharp_dessist
             // Get the SQL statement
             string sql = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "SqlCommand").ContentValue;
             if (sql == null) sql = "COULD NOT FIND SQL STATEMENT";
+            string sql_resource_name = ResourceWriter.AddSqlResource(GetParentDtsName() + "_ReadPipe", sql);
 
             // Produce a data set that we're going to process - name it after ourselves
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
@@ -326,10 +328,9 @@ namespace csharp_dessist
             }
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""]])) {{", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
             sw.WriteLine(@"{0}    conn.Open();", indent);
-            sw.WriteLine(@"{0}    string sql = @""{1}"";", indent, sql.Replace("\"", "\"\"").Trim());
-            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(sql, conn)) {{", indent);
+            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_resource_name);
             sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
             sw.WriteLine(@"{0}        component{1}.Load(dr);", indent, this.Attributes["id"]);
             sw.WriteLine(@"{0}        dr.Close();", indent);
@@ -360,23 +361,37 @@ namespace csharp_dessist
             // Retrieve the connection string object
             string connstr = GetConnectionStringName(Attributes["SQLTask:Connection"]);
 
-            // Retrieve the SQL String
-            string sql = Attributes["SQLTask:SqlStatementSource"];
+            // Retrieve the SQL String and put it in a resource
+            string sql_attr_name = ResourceWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""]])) {{", indent, connstr);
+            sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
+            sw.WriteLine(@"", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
             sw.WriteLine(@"{0}    conn.Open();", indent);
-            sw.WriteLine(@"{0}    string sql = @""{1}"";", indent, sql.Replace("\"","\"\"").Trim());
 
             // TODO: SQL Parameters should go in here
 
-            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(sql, conn)) {{", indent);
+            sw.WriteLine(@"{0}    using (var cmd = new SqlCommand(Resource1.{1}, conn)) {{", indent, sql_attr_name);
             sw.WriteLine(@"{0}        SqlDataReader dr = cmd.ExecuteReader();", indent);
-            sw.WriteLine(@"{0}        DataSet ds = new DataSet();", indent);
-            sw.WriteLine(@"{0}        ds.Load(dr);", indent);
+            sw.WriteLine(@"{0}        dt = new DataTable();", indent);
+            sw.WriteLine(@"{0}        dt.Load(dr);", indent);
             sw.WriteLine(@"{0}        dr.Close();", indent);
             sw.WriteLine(@"{0}    }}", indent);
             sw.WriteLine(@"{0}}}", indent);
+        }
+
+        private string GetParentDtsName()
+        {
+            SsisObject obj = this;
+            while (obj != null && obj.DtsObjectName == null) {
+                obj = obj.Parent;
+            }
+            if (obj == null) {
+                return "Unnamed";
+            } else {
+                return obj.DtsObjectName;
+            }
         }
 
         /// <summary>
