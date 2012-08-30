@@ -38,7 +38,7 @@ namespace csharp_dessist
             ReadObject(xd.DocumentElement, o);
 
             // Now let's produce something meaningful out of this mess!
-            ProduceSsisDotNetPackage(o, output_folder);
+            ProduceSsisDotNetPackage(Path.GetFileNameWithoutExtension(ssis_filename), o, output_folder);
         }
 
         #region Write the SSIS package to a C# folder
@@ -46,7 +46,7 @@ namespace csharp_dessist
         /// Produce C# files that replicate the functionality of an SSIS package
         /// </summary>
         /// <param name="o"></param>
-        private static void ProduceSsisDotNetPackage(SsisObject o, string output_folder)
+        private static void ProduceSsisDotNetPackage(string projectname, SsisObject o, string output_folder)
         {
             // First find all the connection strings and write them to an app.config file
             var connstrings = from SsisObject c in o.Children where c.DtsObjectType == "DTS:ConnectionManager" select c;
@@ -55,7 +55,10 @@ namespace csharp_dessist
             // Next, write all the executable functions to the main file
             var functions = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Executable" select c;
             var variables = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Variable" select c;
-            WriteProgram(variables, functions, Path.Combine(output_folder, "program.cs"));
+            WriteProgram(variables, functions, Path.Combine(output_folder, "program.cs"), projectname);
+
+            // Next write the resources and the project file
+            ResourceWriter.WriteResourceAndProjectFile(output_folder, projectname);
         }
 
         /// <summary>
@@ -64,13 +67,14 @@ namespace csharp_dessist
         /// <param name="variables"></param>
         /// <param name="functions"></param>
         /// <param name="p"></param>
-        private static void WriteProgram(IEnumerable<SsisObject> variables, IEnumerable<SsisObject> functions, string filename)
+        private static void WriteProgram(IEnumerable<SsisObject> variables, IEnumerable<SsisObject> functions, string filename, string appname)
         {
             using (StreamWriter sw = new StreamWriter(filename, false, Encoding.UTF8)) {
 
                 // Write the header
-                sw.WriteLine(@"using System;
+                sw.Write(@"using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -78,7 +82,9 @@ using System.Text;
 using System.Xml;
 using System.IO;
 
-namespace dessist_package
+namespace ");
+                sw.Write(appname);
+                sw.Write(@"
 {
     public class Program
     {
@@ -175,6 +181,7 @@ namespace dessist_package
                     } else {
                         SsisObject child_obj = new SsisObject();
                         ReadObject(child_el, child_obj);
+                        child_obj.Parent = o;
                         o.Children.Add(child_obj);
                     }
                 } else if (child is XmlText) {
