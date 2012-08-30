@@ -1,1 +1,1 @@
-<None Include="Resources\@@RESNAME@@.sql" />
+    <None Include="Resources\@@RESNAME@@.sql" />

@@ -21,6 +21,7 @@ namespace csharp_dessist
         /// The human readable name of this object
         /// </summary>
         public string DtsObjectName;
+        private string _FunctionName;
 
         /// <summary>
         /// A user-readable explanation of what this is
@@ -136,7 +137,7 @@ namespace csharp_dessist
             }
 
             // Function intro
-            sw.WriteLine(String.Format("{0}public static void {1}(){2}        {{{2}", indent, FixFunctionName(DtsObjectName), Environment.NewLine));
+            sw.WriteLine(String.Format("{0}public static void {1}(){2}        {{", indent, GetFunctionName(), Environment.NewLine));
 
             // TODO: Is there an exception handler?  How many types of event handlers are there?
             // TODO: Check precedence constraints
@@ -184,11 +185,15 @@ namespace csharp_dessist
             var component_container = (from c in this.Children where c.DtsObjectType == "components" select c).FirstOrDefault();
             if (component_container == null) return;
 
+            // Produce a "row count" variable we can use
+            sw.WriteLine(@"{0}int row_count = 0;", indent);
+
             // Iterate through all child components
             foreach (SsisObject child in component_container.Children) {
                 string componentClassId = child.Attributes["componentClassID"];
 
                 // Put in a comment for each component
+                sw.WriteLine();
                 sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
 
                 // What type of component is this?  Is it a reader?
@@ -245,7 +250,7 @@ namespace csharp_dessist
                 if (lo == null) {
                     Console.WriteLine("Help!");
                 } else {
-                    paramsetup.AppendFormat(@"{0}            cmd.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
+                    paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
 ", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn);
                 }
             }
@@ -294,7 +299,7 @@ namespace csharp_dessist
                 _lineage_columns.Add(lo);
 
                 // Print out this column
-                sw.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], outcol.Attributes["name"], outcol.Attributes["dataType"]);
+                sw.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], outcol.Attributes["name"], LookupSsisTypeName(outcol.Attributes["dataType"]));
                 DataTable dt = new DataTable();
             }
 
@@ -348,7 +353,7 @@ namespace csharp_dessist
         /// <param name="sw"></param>
         private void EmitFunctionCall(string indent, StreamWriter sw)
         {
-            sw.WriteLine(String.Format(@"{0}{1}();", indent, FixFunctionName(DtsObjectName)));
+            sw.WriteLine(String.Format(@"{0}{1}();", indent, GetFunctionName()));
         }
 
         /// <summary>
@@ -409,11 +414,38 @@ namespace csharp_dessist
         #endregion
 
         #region Helper functions
-        private static string FixFunctionName(string str)
+        private static List<string> _func_names = new List<string>();
+        public string GetFunctionName()
         {
-            Regex rgx = new Regex("[^a-zA-Z0-9]");
-            return rgx.Replace(str, "_");
+            if (_FunctionName == null) {
+                Regex rgx = new Regex("[^a-zA-Z0-9]");
+                string fn = rgx.Replace(GetParentDtsName(), "_");
+
+                // Uniqueify!
+                int i = 0;
+                string newfn = fn;
+                while (_func_names.Contains(newfn)) {
+                    i++;
+                    newfn = fn + "_" + i.ToString();
+                }
+                _FunctionName = newfn;
+                _func_names.Add(_FunctionName);
+            }
+            return _FunctionName;
         }
+
+        private static string LookupSsisTypeName(string p)
+        {
+            if (p == "i2") {
+                return "System.Int16";
+            } else if (p == "str") {
+                return "System.String";
+            } else {
+                Console.WriteLine("Help!");
+            }
+            return null;
+        }
+
         #endregion
     }
 }
