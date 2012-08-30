@@ -88,6 +88,28 @@ namespace ");
 {
     public class Program
     {
+
+
+#region Main()
+        /// <summary>
+        /// Main Function
+        /// </summary>
+        /// <param name=""args""></param>
+        static void Main(string[] args)
+        {
+            ");
+
+                // Emit a function call to the first function in the application
+                sw.Write(functions.FirstOrDefault().GetFunctionName());
+                sw.Write(@"();
+        }
+#endregion
+
+
+#region Global Variables
+        /// <summary>
+        /// Global Variables
+        /// </summary>
 ");
 
                 // Write each variable out as if it's a global
@@ -95,13 +117,21 @@ namespace ");
                     v.EmitVariable("        ", true, sw);
                 }
 
+                sw.Write(@"
+#endregion
+
+
+#region SSIS Extracted Functions
+");
                 // Write each executable out as a function
                 foreach (SsisObject v in functions) {
                     v.EmitFunction("        ", sw);
                 }
 
                 // Write the footer
-                sw.WriteLine(@"    }
+                sw.WriteLine(@"
+#endregion
+    }
 }");
             }
         }

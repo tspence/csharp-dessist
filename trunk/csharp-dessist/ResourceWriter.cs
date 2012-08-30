@@ -40,7 +40,7 @@ namespace csharp_dessist
 
             // Uniqueify!
             string newname = sb.ToString().ToLower();
-            int i = 0;
+            int i = 1;
             while (_resources.ContainsKey(newname)) {
                 newname = sb.ToString().ToLower() + "_" + i.ToString();
                 i++;
@@ -53,6 +53,8 @@ namespace csharp_dessist
             // Ensure resources folder exists
             string resfolder = Path.Combine(folder, "Resources");
             Directory.CreateDirectory(resfolder);
+            string propfolder = Path.Combine(folder, "Properties");
+            Directory.CreateDirectory(propfolder);
 
             // Let's produce the template of the resources
             StringBuilder resfile = new StringBuilder();
@@ -82,16 +84,26 @@ namespace csharp_dessist
             string project =
                 Resource1.ProjectTemplate
                 .Replace("@@RESOURCES@@", prjfile.ToString())
-                .Replace("@@PROJGUID@@", proj_guid.ToString());
+                .Replace("@@APPNAME@@", appname)
+                .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper());
             File.WriteAllText(Path.Combine(folder, appname + ".csproj"), project);
 
             // Spit out the solution file
             Guid sln_guid = Guid.NewGuid();
             string solution =
                 Resource1.SolutionTemplate
-                .Replace("@@PROJGUID@@", proj_guid.ToString())
+                .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper())
+                .Replace("@@SOLUTIONGUID@@", sln_guid.ToString().ToUpper())
                 .Replace("@@APPNAME@@", appname);
             File.WriteAllText(Path.Combine(folder, appname + ".sln"), solution);
+
+            // Spit out the assembly file
+            Guid asy_guid = Guid.NewGuid();
+            string assembly = 
+                Resource1.AssemblyTemplate
+                .Replace("@@ASSEMBLYGUID@@", asy_guid.ToString())
+                .Replace("@@APPNAME@@", appname);
+            File.WriteAllText(Path.Combine(propfolder, "AssemblyInfo.cs"), assembly);
         }
     }
 }

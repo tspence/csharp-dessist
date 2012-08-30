@@ -61,6 +61,27 @@ namespace csharp_dessist {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to using System.Reflection;
+        ///using System.Runtime.CompilerServices;
+        ///using System.Runtime.InteropServices;
+        ///
+        ///// General Information about an assembly is controlled through the following 
+        ///// set of attributes. Change these attribute values to modify the information
+        ///// associated with an assembly.
+        ///[assembly: AssemblyTitle(&quot;@@APPNAME@@&quot;)]
+        ///[assembly: AssemblyDescription(&quot;&quot;)]
+        ///[assembly: AssemblyConfiguration(&quot;&quot;)]
+        ///[assembly: AssemblyCompany(&quot;&quot;)]
+        ///[assembly: AssemblyProduct(&quot;@@APPNAME@@&quot;)]
+        ///[assembly: Assembly [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string AssemblyTemplate {
+            get {
+                return ResourceManager.GetString("AssemblyTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to         internal static string @@RESNAME@@ {
         ///            get {
         ///                return ResourceManager.GetString(&quot;@@RESNAME@@&quot;, resourceCulture);
@@ -75,7 +96,8 @@ namespace csharp_dessist {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &lt;None Include=&quot;Resources\@@RESNAME@@.sql&quot; /&gt;.
+        ///   Looks up a localized string similar to     &lt;None Include=&quot;Resources\@@RESNAME@@.sql&quot; /&gt;
+        ///.
         /// </summary>
         internal static string IndividualResourceProjectSnippet {
             get {
