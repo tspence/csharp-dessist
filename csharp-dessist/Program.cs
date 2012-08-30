@@ -71,6 +71,8 @@ namespace csharp_dessist
                 // Write the header
                 sw.WriteLine(@"using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Xml;
@@ -84,12 +86,12 @@ namespace dessist_package
 
                 // Write each variable out as if it's a global
                 foreach (SsisObject v in variables) {
-                    v.EmitVariable(8, true, sw);
+                    v.EmitVariable("        ", true, sw);
                 }
 
                 // Write each executable out as a function
                 foreach (SsisObject v in functions) {
-                    v.EmitFunction(8, sw);
+                    v.EmitFunction("        ", sw);
                 }
 
                 // Write the footer
