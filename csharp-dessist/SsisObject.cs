@@ -110,26 +110,41 @@ namespace csharp_dessist
             // Figure out what type of a variable we are
             string dtstype = this.GetChildByType("DTS:VariableValue").Attributes["DTS:DataType"];
             string csharptype = null;
+            string defaultvalue = this.GetChildByType("DTS:VariableValue").ContentValue;
 
-            // Integer
+            // Here are the DTS type codes I know
             if (dtstype == "3") {
                 csharptype = "int";
             } else if (dtstype == "8") {
                 csharptype = "string";
+                if (!String.IsNullOrEmpty(defaultvalue)) {
+                    defaultvalue = "\"" + defaultvalue + "\"";
+                }
             } else if (dtstype == "13") {
                 csharptype = "DataTable";
+                defaultvalue = "null";
             } else if (dtstype == "2") {
-                csharptype = "byte";
+                csharptype = "short";
             } else if (dtstype == "11") {
                 csharptype = "bool";
+                if (defaultvalue == "1") {
+                    defaultvalue = "true";
+                } else {
+                    defaultvalue = "false";
+                }
             } else if (dtstype == "20") {
                 csharptype = "long";
             } else if (dtstype == "7") {
                 csharptype = "DateTime";
+                if (!String.IsNullOrEmpty(defaultvalue)) {
+                    defaultvalue = "\"" + defaultvalue + "\"";
+                }
             } else {
                 Console.WriteLine("Help!  I don't understand DTS type " + dtstype);
             }
 
+            // Do we add comments for these variables?
+            string privilege = "";
             if (as_global) {
                 if (!String.IsNullOrEmpty(Description)) {
                     sw.WriteLine();
@@ -137,9 +152,14 @@ namespace csharp_dessist
                     sw.WriteLine("{0}/// {1}", indent, Description);
                     sw.WriteLine("{0}/// </summary>", indent);
                 }
-                sw.WriteLine(String.Format(@"{0}public {3} {1} = ""{2}"";", indent, DtsObjectName, ContentValue, csharptype));
+                privilege = "public static ";
+            }
+
+            // Write it out
+            if (String.IsNullOrEmpty(defaultvalue)) {
+                sw.WriteLine(String.Format(@"{0}{3}{2} {1};", indent, DtsObjectName, csharptype, privilege));
             } else {
-                sw.WriteLine(String.Format(@"{0}{3} {1} = ""{2}"";", indent, DtsObjectName, ContentValue, csharptype));
+                sw.WriteLine(String.Format(@"{0}{4}{3} {1} = {2};", indent, DtsObjectName, defaultvalue, csharptype, privilege));
             }
         }
 
@@ -441,6 +461,17 @@ namespace csharp_dessist
             sw.WriteLine(@"{0}        dr.Close();", indent);
             sw.WriteLine(@"{0}    }}", indent);
             sw.WriteLine(@"{0}}}", indent);
+
+            // Do we have a result binding?
+            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
+            if (binding != null) {
+                string varname = binding.Attributes["SQLTask:DtsVariableName"];
+
+                // Emit our binding
+                sw.WriteLine(@"{0}", indent);
+                sw.WriteLine(@"{0}// Bind results to ", indent, varname);
+                sw.WriteLine(@"{0}{1} = dt;", indent, varname.Replace("User::", ""));
+            }
         }
 
         private string GetParentDtsName()
