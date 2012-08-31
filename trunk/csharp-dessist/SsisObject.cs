@@ -144,7 +144,7 @@ namespace csharp_dessist
 
             // Child script project - Emit it as a sub-project within the greater solution!
             if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ScriptTask.ScriptTask")) {
-                ProjectWriter.EmitScriptProject(this);
+                ProjectWriter.EmitScriptProject(this, indent + "    ", sw);
 
             // Basic SQL command
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ExecuteSQLTask.ExecuteSQLTask")) {
