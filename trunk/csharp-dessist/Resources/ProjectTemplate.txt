@@ -37,6 +37,7 @@
     <StartupObject>@@APPNAME@@.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
+@@DLLS@@
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Core" />

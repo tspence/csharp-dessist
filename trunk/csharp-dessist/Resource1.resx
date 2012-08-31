@@ -121,6 +121,9 @@
   <data name="AssemblyTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\AssemblyTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="DllReferenceTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\DllReferenceTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
   <data name="IndividualResourceDesignerTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\IndividualResourceDesignerTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>

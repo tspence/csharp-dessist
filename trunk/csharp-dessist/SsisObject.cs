@@ -20,6 +20,7 @@ namespace csharp_dessist
         /// </summary>
         public string DtsObjectName;
         private string _FunctionName;
+        private string _FolderName;
 
         /// <summary>
         /// A user-readable explanation of what this is
@@ -138,9 +139,33 @@ namespace csharp_dessist
             // Function intro
             sw.WriteLine(String.Format("{0}public static void {1}(){2}        {{", indent, GetFunctionName(), Environment.NewLine));
 
+            // What type of executable are we?  Let's check if special handling is required
+            string exec_type = Attributes["DTS:ExecutableType"];
+
+            // Child script project - Emit it as a sub-project within the greater solution!
+            if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ScriptTask.ScriptTask")) {
+                ProjectWriter.EmitScriptProject(this);
+
+            // Basic SQL command
+            } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ExecuteSQLTask.ExecuteSQLTask")) {
+                // Already handled within - it's just a single SQL statement
+
+            // Something I don't yet understand
+            } else {
+                Console.WriteLine("Help!  I don't yet know how to handle " + exec_type);
+            }
+
             // TODO: Is there an exception handler?  How many types of event handlers are there?
             // TODO: Check precedence constraints
             // TODO: Create a general purpose lookup of DTSID objects
+
+            // Figure out all the precedence constraints within our child objects
+            List<PrecedenceData> list = new List<PrecedenceData>();
+            foreach (SsisObject o in Children) {
+                if (o.DtsObjectType == "DTS:PrecedenceConstraint") {
+                    list.Add(new PrecedenceData(o));
+                }
+            }
 
             // Function body
             foreach (SsisObject o in Children) {
@@ -162,8 +187,12 @@ namespace csharp_dessist
                 // TODO: Handle "pipeline" objects
                 } else if (childobj.DtsObjectType == "pipeline") {
                     childobj.EmitPipeline(indent + "    ", sw);
+                } else if (childobj.DtsObjectType == "DTS:PrecedenceConstraint") {
+                    // ignore it - it's already been handled
+                } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
+                    // Ignore it - I can't figure out any useful information on this object
                 } else {
-                    Console.WriteLine("Help!");
+                    Console.WriteLine("Help!  I don't yet know how to handle " + childobj.DtsObjectType);
                 }
             }
 
@@ -249,7 +278,7 @@ namespace csharp_dessist
 
                 // Parameter setup instructions
                 if (lo == null) {
-                    Console.WriteLine("Help!");
+                    Console.WriteLine("Help!  I couldn't find lineage column " + lineageId);
                 } else {
                     paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
 ", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn);
@@ -265,7 +294,7 @@ namespace csharp_dessist
             sql.Append(colnames.ToString());
             sql.Append(") VALUES ");
             sql.Append(varnames.ToString());
-            string sql_resource_name = ResourceWriter.AddSqlResource(GetParentDtsName() + "_WritePipe", sql.ToString());
+            string sql_resource_name = ProjectWriter.AddSqlResource(GetParentDtsName() + "_WritePipe", sql.ToString());
 
             // Produce a data set that we're going to process - name it after ourselves
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
@@ -320,7 +349,7 @@ namespace csharp_dessist
             // Get the SQL statement
             string sql = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "SqlCommand").ContentValue;
             if (sql == null) sql = "COULD NOT FIND SQL STATEMENT";
-            string sql_resource_name = ResourceWriter.AddSqlResource(GetParentDtsName() + "_ReadPipe", sql);
+            string sql_resource_name = ProjectWriter.AddSqlResource(GetParentDtsName() + "_ReadPipe", sql);
 
             // Produce a data set that we're going to process - name it after ourselves
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
@@ -372,7 +401,7 @@ namespace csharp_dessist
             string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
             // Retrieve the SQL String and put it in a resource
-            string sql_attr_name = ResourceWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
+            string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
 
             // Write the using clause for the connection
             sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
@@ -442,6 +471,26 @@ namespace csharp_dessist
         public static SsisObject GetObjectByGuid(Guid g)
         {
             return _guid_lookup[g];
+        }
+
+        private static List<string> _folder_names = new List<string>();
+        public string GetFolderName()
+        {
+            if (_FolderName == null) {
+                Regex rgx = new Regex("[^a-zA-Z0-9]");
+                string fn = rgx.Replace(GetParentDtsName(), "");
+
+                // Uniqueify!
+                int i = 0;
+                string newfn = fn;
+                while (_folder_names.Contains(newfn)) {
+                    i++;
+                    newfn = fn + "_" + i.ToString();
+                }
+                _FolderName = newfn;
+                _folder_names.Add(_FolderName);
+            }
+            return _FolderName;
         }
         #endregion
     }

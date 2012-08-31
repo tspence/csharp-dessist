@@ -48,6 +48,8 @@ namespace csharp_dessist
         /// <param name="o"></param>
         private static void ProduceSsisDotNetPackage(string projectname, SsisObject o, string output_folder)
         {
+            ProjectWriter.AppFolder = output_folder;
+
             // First find all the connection strings and write them to an app.config file
             var connstrings = from SsisObject c in o.Children where c.DtsObjectType == "DTS:ConnectionManager" select c;
             ConnectionWriter.WriteAppConfig(connstrings, Path.Combine(output_folder, "app.config"));
@@ -58,7 +60,7 @@ namespace csharp_dessist
             WriteProgram(variables, functions, Path.Combine(output_folder, "program.cs"), projectname);
 
             // Next write the resources and the project file
-            ResourceWriter.WriteResourceAndProjectFile(output_folder, projectname);
+            ProjectWriter.WriteResourceAndProjectFile(output_folder, projectname);
         }
 
         /// <summary>
