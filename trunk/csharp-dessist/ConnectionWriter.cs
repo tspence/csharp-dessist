@@ -80,7 +80,7 @@ namespace csharp_dessist
             } else if (objecttype.StartsWith("ADO.NET:System.Data.SqlClient.SqlConnection")) {
                 return "Sql";
             } else {
-                Console.WriteLine("Help!");
+                HelpWriter.Help(null, "I don't understand the database connection type " + objecttype);
             }
             return "";
         }

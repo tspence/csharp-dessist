@@ -161,6 +161,24 @@ namespace csharp_dessist
                 .Replace("@@ASSEMBLYGUID@@", asy_guid.ToString())
                 .Replace("@@APPNAME@@", appname);
             File.WriteAllText(Path.Combine(propfolder, "AssemblyInfo.cs"), assembly);
+
+            // Write out the help notes
+            Console.WriteLine("Decompilation completed.");
+            if (HelpWriter._help_messages.Count > 0) {
+                string helpfile = Path.Combine(folder, "ImportErrors.txt");
+                File.Delete(helpfile);
+                using (StreamWriter sw = new StreamWriter(helpfile)) {
+                    foreach (String help in HelpWriter._help_messages) {
+                        sw.WriteLine(help);
+                    }
+                }
+                Console.WriteLine("{0} import errors encountered.", HelpWriter._help_messages.Count);
+                Console.WriteLine("Import errors written to " + helpfile);
+                Console.WriteLine();
+                Console.WriteLine("Please consider sharing a copy of your SSIS package with the DESSIST team.");
+                Console.WriteLine("Visit our website online here:");
+                Console.WriteLine("    https://code.google.com/p/csharp-dessist/");
+            }
         }
     }
 }

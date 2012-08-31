@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="CommandWrapLib.cs" />
     <Compile Include="ConnectionWriter.cs" />
+    <Compile Include="HelpWriter.cs" />
     <Compile Include="LineageObject.cs" />
     <Compile Include="PrecedenceData.cs" />
     <Compile Include="Program.cs" />

@@ -140,7 +140,7 @@ namespace csharp_dessist
                     defaultvalue = "\"" + defaultvalue + "\"";
                 }
             } else {
-                Console.WriteLine("Help!  I don't understand DTS type " + dtstype);
+                HelpWriter.Help(this, "I don't understand DTS type " + dtstype);
             }
 
             // Do we add comments for these variables?
@@ -195,7 +195,7 @@ namespace csharp_dessist
 
             // Something I don't yet understand
             } else {
-                Console.WriteLine("Help!  I don't yet know how to handle " + exec_type);
+                HelpWriter.Help(this, "I don't yet know how to handle " + exec_type);
             }
 
             // TODO: Is there an exception handler?  How many types of event handlers are there?
@@ -235,7 +235,7 @@ namespace csharp_dessist
                 } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
                     // Ignore it - I can't figure out any useful information on this object
                 } else {
-                    Console.WriteLine("Help!  I don't yet know how to handle " + childobj.DtsObjectType);
+                    HelpWriter.Help(this, "I don't yet know how to handle " + childobj.DtsObjectType);
                 }
             }
 
@@ -388,7 +388,7 @@ namespace csharp_dessist
 
                 // Parameter setup instructions
                 if (lo == null) {
-                    Console.WriteLine("Help!  I couldn't find lineage column " + lineageId);
+                    HelpWriter.Help(this, "I couldn't find lineage column " + lineageId);
                 } else {
                     paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
 ", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn);
@@ -483,6 +483,7 @@ namespace csharp_dessist
             var paramlist = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "ParameterMapping");
             if (paramlist != null && paramlist.ContentValue != null) {
                 string[] p = paramlist.ContentValue.Split(';');
+                int paramnum = 0;
                 foreach (string oneparam in p) {
                     if (!String.IsNullOrEmpty(oneparam)) {
                         string[] parts = oneparam.Split(',');
@@ -491,11 +492,12 @@ namespace csharp_dessist
                         // Look up this GUID - can we find it?
                         SsisObject v = GetObjectByGuid(g);
                         if (connprefix == "OleDb") {
-                            sw.WriteLine(@"{0}        cmd.Parameters.Add(new OleDbParameter({1}));", indent, v.DtsObjectName);
+                            sw.WriteLine(@"{0}        cmd.Parameters.Add(new OleDbParameter(""@p{2}"",{1}));", indent, v.DtsObjectName, paramnum);
                         } else {
                             sw.WriteLine(@"{0}        cmd.Parameters.AddWithValue(""@{1}"",{2});", indent, parts[0], v.DtsObjectName);
                         }
                     }
+                    paramnum++;
                 }
             }
 
@@ -539,7 +541,7 @@ namespace csharp_dessist
             } else if (p == "str") {
                 return "System.String";
             } else {
-                Console.WriteLine("Help!");
+                HelpWriter.Help(null, "I don't yet understand the SSIS type named " + p);
             }
             return null;
         }
@@ -549,7 +551,7 @@ namespace csharp_dessist
         {
             var v = _guid_lookup[g];
             if (v == null) {
-                Console.WriteLine("Help! Can't find object by GUID " + g.ToString());
+                HelpWriter.Help(null, "Can't find object matching GUID " + g.ToString());
             }
             return v;
         }
@@ -572,6 +574,16 @@ namespace csharp_dessist
                 _folder_names.Add(_FolderName);
             }
             return _FolderName;
+        }
+
+        public Guid GetNearestGuid()
+        {
+            SsisObject o = this;
+            while (o != null && o.DtsId == null) {
+                o = o.Parent;
+            }
+            if (o != null) return o.DtsId;
+            return Guid.Empty;
         }
         #endregion
     }
