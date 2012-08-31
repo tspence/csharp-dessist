@@ -82,6 +82,18 @@ namespace csharp_dessist {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to     &lt;Reference Include=&quot;@@FILENAMEWITHOUTEXTENSION@@&quot;&gt;
+        ///      &lt;HintPath&gt;@@RELATIVEPATH@@&lt;/HintPath&gt;
+        ///    &lt;/Reference&gt;
+        ///.
+        /// </summary>
+        internal static string DllReferenceTemplate {
+            get {
+                return ResourceManager.GetString("DllReferenceTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to         internal static string @@RESNAME@@ {
         ///            get {
         ///                return ResourceManager.GetString(&quot;@@RESNAME@@&quot;, resourceCulture);

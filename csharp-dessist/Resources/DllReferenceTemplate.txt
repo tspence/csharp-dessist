@@ -1,0 +1,3 @@
+    <Reference Include="@@FILENAMEWITHOUTEXTENSION@@">
+      <HintPath>@@RELATIVEPATH@@</HintPath>
+    </Reference>

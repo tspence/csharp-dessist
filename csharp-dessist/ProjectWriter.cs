@@ -6,9 +6,50 @@ using System.IO;
 
 namespace csharp_dessist
 {
-    public class ResourceWriter
+    public class ProjectWriter
     {
-        private static Dictionary<string, string> _resources = new Dictionary<string,string>();
+        public static string AppFolder;
+
+        public static List<string> ProjectFiles = new List<string>();
+        public static List<string> AllFiles = new List<string>();
+        public static List<string> DllFiles = new List<string>();
+
+        public static void EmitScriptProject(SsisObject o)
+        {
+            // Find the script object child
+            var script = o.GetChildByType("DTS:ObjectData").GetChildByType("ScriptProject");
+
+            // Create a folder for this script
+            string project_folder = Path.Combine(AppFolder, o.GetFolderName());
+            Directory.CreateDirectory(project_folder);
+
+            // Extract all the individual script files in this script
+            foreach (SsisObject child in script.Children) {
+                string fn = project_folder + child.Attributes["Name"];
+                string dir = Path.GetDirectoryName(fn);
+                Directory.CreateDirectory(dir);
+
+                if (child.DtsObjectType == "BinaryItem") {
+                    byte[] contents = System.Convert.FromBase64String(child.ContentValue);
+                    File.WriteAllBytes(fn, contents);
+                } else if (child.DtsObjectType == "ProjectItem") {
+                    File.WriteAllText(fn, child.ContentValue);
+                }
+
+                // Handle DLL files specially - they are binary!  Oh yeah base64 encoded
+                if (fn.EndsWith(".dll")) {
+                    DllFiles.Add(fn);
+
+                // Is this a project file?
+                } else if (fn.EndsWith(".vbproj") || fn.EndsWith(".csproj")) {
+                    ProjectFiles.Add(fn);
+                } else {
+                    AllFiles.Add(fn);
+                }
+            }
+        }
+
+        private static Dictionary<string, string> _resources = new Dictionary<string, string>();
 
         public static string AddSqlResource(string name, string resource)
         {
@@ -69,11 +110,20 @@ namespace csharp_dessist
                 File.WriteAllText(Path.Combine(resfolder, kvp.Key + ".sql"), kvp.Value);
             }
 
+            // Iterate through DLLS
+            StringBuilder DllReferences = new StringBuilder();
+            foreach (string dll in DllFiles) {
+                DllReferences.Append(
+                    Resource1.DllReferenceTemplate
+                    .Replace("@@FILENAMEWITHOUTEXTENSION@@", Path.GetFileNameWithoutExtension(dll))
+                    .Replace("@@RELATIVEPATH@@", dll.Substring(folder.Length+1)));
+            }
+
             // Spit out the resource file
             File.WriteAllText(Path.Combine(folder, "Resource1.resx"), Resource1.ResourceTemplate.Replace("@@RESOURCES@@", resfile.ToString()));
 
             // Resource needs a designer file too!
-            string designer = 
+            string designer =
                 Resource1.ResourceDesignerTemplate
                 .Replace("@@APPNAME@@", appname)
                 .Replace("@@RESOURCES@@", desfile.ToString());
@@ -84,6 +134,7 @@ namespace csharp_dessist
             string project =
                 Resource1.ProjectTemplate
                 .Replace("@@RESOURCES@@", prjfile.ToString())
+                .Replace("@@DLLS@@", DllReferences.ToString())
                 .Replace("@@APPNAME@@", appname)
                 .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper());
             File.WriteAllText(Path.Combine(folder, appname + ".csproj"), project);
@@ -99,7 +150,7 @@ namespace csharp_dessist
 
             // Spit out the assembly file
             Guid asy_guid = Guid.NewGuid();
-            string assembly = 
+            string assembly =
                 Resource1.AssemblyTemplate
                 .Replace("@@ASSEMBLYGUID@@", asy_guid.ToString())
                 .Replace("@@APPNAME@@", appname);
