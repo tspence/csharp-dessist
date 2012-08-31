@@ -14,7 +14,7 @@ namespace csharp_dessist
         public static List<string> AllFiles = new List<string>();
         public static List<string> DllFiles = new List<string>();
 
-        public static void EmitScriptProject(SsisObject o)
+        public static void EmitScriptProject(SsisObject o, string indent, StreamWriter sw)
         {
             // Find the script object child
             var script = o.GetChildByType("DTS:ObjectData").GetChildByType("ScriptProject");
@@ -39,6 +39,12 @@ namespace csharp_dessist
                 // Handle DLL files specially - they are binary!  Oh yeah base64 encoded
                 if (fn.EndsWith(".dll")) {
                     DllFiles.Add(fn);
+
+                    // Show the user that this is how the script should be executed
+                    sw.WriteLine(@"{0}// Execute the script project {1}", indent, o.GetFolderName());
+                    sw.WriteLine(@"{0}// This script has been extracted to the folder {1}", indent, project_folder);
+                    sw.WriteLine(@"{0}{1}.ScriptMain sm = new {1}.ScriptMain();", indent, Path.GetFileNameWithoutExtension(fn).Replace("scripttask", "ScriptTask"));
+                    sw.WriteLine(@"{0}sm.Main();", indent);
 
                 // Is this a project file?
                 } else if (fn.EndsWith(".vbproj") || fn.EndsWith(".csproj")) {
