@@ -107,6 +107,29 @@ namespace csharp_dessist
         /// <param name="sw"></param>
         internal void EmitVariable(string indent, bool as_global, StreamWriter sw)
         {
+            // Figure out what type of a variable we are
+            string dtstype = this.GetChildByType("DTS:VariableValue").Attributes["DTS:DataType"];
+            string csharptype = null;
+
+            // Integer
+            if (dtstype == "3") {
+                csharptype = "int";
+            } else if (dtstype == "8") {
+                csharptype = "string";
+            } else if (dtstype == "13") {
+                csharptype = "DataTable";
+            } else if (dtstype == "2") {
+                csharptype = "byte";
+            } else if (dtstype == "11") {
+                csharptype = "bool";
+            } else if (dtstype == "20") {
+                csharptype = "long";
+            } else if (dtstype == "7") {
+                csharptype = "DateTime";
+            } else {
+                Console.WriteLine("Help!  I don't understand DTS type " + dtstype);
+            }
+
             if (as_global) {
                 if (!String.IsNullOrEmpty(Description)) {
                     sw.WriteLine();
@@ -114,9 +137,9 @@ namespace csharp_dessist
                     sw.WriteLine("{0}/// {1}", indent, Description);
                     sw.WriteLine("{0}/// </summary>", indent);
                 }
-                sw.WriteLine(String.Format(@"{0}public string {1} = ""{2}"";", indent, DtsObjectName, ContentValue));
+                sw.WriteLine(String.Format(@"{0}public {3} {1} = ""{2}"";", indent, DtsObjectName, ContentValue, csharptype));
             } else {
-                sw.WriteLine(String.Format(@"{0}string {1} = ""{2}"";", indent, DtsObjectName, ContentValue));
+                sw.WriteLine(String.Format(@"{0}{3} {1} = ""{2}"";", indent, DtsObjectName, ContentValue, csharptype));
             }
         }
 
