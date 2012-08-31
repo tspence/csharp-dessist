@@ -250,6 +250,73 @@ namespace csharp_dessist
             }
         }
 
+        /// <summary>
+        /// Write out a function call
+        /// </summary>
+        /// <param name="indent"></param>
+        /// <param name="sw"></param>
+        private void EmitFunctionCall(string indent, StreamWriter sw)
+        {
+            sw.WriteLine(String.Format(@"{0}{1}();", indent, GetFunctionName()));
+        }
+
+        /// <summary>
+        /// Write out an SQL statement
+        /// </summary>
+        /// <param name="indent_depth"></param>
+        /// <param name="sw"></param>
+        private void EmitSqlStatement(string indent, StreamWriter sw)
+        {
+            // Retrieve the connection string object
+            string conn_guid = Attributes["SQLTask:Connection"];
+            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
+            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
+
+            // Retrieve the SQL String and put it in a resource
+            string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
+
+            // Write the using clause for the connection
+            sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
+            sw.WriteLine(@"", indent, connstr);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
+            sw.WriteLine(@"{0}    conn.Open();", indent);
+            sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
+
+            // Finish up the SQL call
+            sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
+            sw.WriteLine(@"{0}        dt = new DataTable();", indent);
+            sw.WriteLine(@"{0}        dt.Load(dr);", indent);
+            sw.WriteLine(@"{0}        dr.Close();", indent);
+            sw.WriteLine(@"{0}    }}", indent);
+            sw.WriteLine(@"{0}}}", indent);
+
+            // Do we have a result binding?
+            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
+            if (binding != null) {
+                string varname = binding.Attributes["SQLTask:DtsVariableName"];
+
+                // Emit our binding
+                sw.WriteLine(@"{0}", indent);
+                sw.WriteLine(@"{0}// Bind results to ", indent, varname);
+                sw.WriteLine(@"{0}{1} = dt;", indent, varname.Replace("User::", ""));
+            }
+        }
+
+        private string GetParentDtsName()
+        {
+            SsisObject obj = this;
+            while (obj != null && obj.DtsObjectName == null) {
+                obj = obj.Parent;
+            }
+            if (obj == null) {
+                return "Unnamed";
+            } else {
+                return obj.DtsObjectName;
+            }
+        }
+        #endregion
+
+        #region Pipeline Logic
         private void EmitPipeline(string indent, StreamWriter sw)
         {
             // Find the component container
@@ -272,12 +339,12 @@ namespace csharp_dessist
                     child.EmitPipelineReader(indent, sw);
                     _lineage_columns.AddRange(child._lineage_columns);
 
-                // Is it a transform?
+                    // Is it a transform?
                 } else if (componentClassId == "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}") {
                     child.EmitPipelineTransform(indent, sw);
                     _lineage_columns.AddRange(child._lineage_columns);
 
-                // Is it a save?
+                    // Is it a save?
                 } else if (componentClassId == "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}") {
                     child._lineage_columns = this._lineage_columns;
                     child.EmitPipelineWriter(indent, sw);
@@ -411,6 +478,28 @@ namespace csharp_dessist
             sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             sw.WriteLine(@"{0}    conn.Open();", indent);
             sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+
+            // Okay, let's load the parameters
+            var paramlist = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "ParameterMapping");
+            if (paramlist != null && paramlist.ContentValue != null) {
+                string[] p = paramlist.ContentValue.Split(';');
+                foreach (string oneparam in p) {
+                    if (!String.IsNullOrEmpty(oneparam)) {
+                        string[] parts = oneparam.Split(',');
+                        Guid g = Guid.Parse(parts[1]);
+
+                        // Look up this GUID - can we find it?
+                        SsisObject v = GetObjectByGuid(g);
+                        if (connprefix == "OleDb") {
+                            sw.WriteLine(@"{0}        cmd.Parameters.Add(new OleDbParameter({1}));", indent, v.DtsObjectName);
+                        } else {
+                            sw.WriteLine(@"{0}        cmd.Parameters.AddWithValue(""@{1}"",{2});", indent, parts[0], v.DtsObjectName);
+                        }
+                    }
+                }
+            }
+
+            // Finish up the pipeline reader
             sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
             sw.WriteLine(@"{0}        component{1}.Load(dr);", indent, this.Attributes["id"]);
             sw.WriteLine(@"{0}        dr.Close();", indent);
@@ -419,72 +508,6 @@ namespace csharp_dessist
 
             // Set our row count
             sw.WriteLine(@"{0}row_count = component{1}.Rows.Count;", indent, this.Attributes["id"]);
-        }
-
-        /// <summary>
-        /// Write out a function call
-        /// </summary>
-        /// <param name="indent"></param>
-        /// <param name="sw"></param>
-        private void EmitFunctionCall(string indent, StreamWriter sw)
-        {
-            sw.WriteLine(String.Format(@"{0}{1}();", indent, GetFunctionName()));
-        }
-
-        /// <summary>
-        /// Write out an SQL statement
-        /// </summary>
-        /// <param name="indent_depth"></param>
-        /// <param name="sw"></param>
-        private void EmitSqlStatement(string indent, StreamWriter sw)
-        {
-            // Retrieve the connection string object
-            string conn_guid = Attributes["SQLTask:Connection"];
-            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
-            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
-
-            // Retrieve the SQL String and put it in a resource
-            string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
-
-            // Write the using clause for the connection
-            sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
-            sw.WriteLine(@"", indent, connstr);
-            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
-            sw.WriteLine(@"{0}    conn.Open();", indent);
-
-            // TODO: SQL Parameters should go in here
-
-            sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
-            sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
-            sw.WriteLine(@"{0}        dt = new DataTable();", indent);
-            sw.WriteLine(@"{0}        dt.Load(dr);", indent);
-            sw.WriteLine(@"{0}        dr.Close();", indent);
-            sw.WriteLine(@"{0}    }}", indent);
-            sw.WriteLine(@"{0}}}", indent);
-
-            // Do we have a result binding?
-            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
-            if (binding != null) {
-                string varname = binding.Attributes["SQLTask:DtsVariableName"];
-
-                // Emit our binding
-                sw.WriteLine(@"{0}", indent);
-                sw.WriteLine(@"{0}// Bind results to ", indent, varname);
-                sw.WriteLine(@"{0}{1} = dt;", indent, varname.Replace("User::", ""));
-            }
-        }
-
-        private string GetParentDtsName()
-        {
-            SsisObject obj = this;
-            while (obj != null && obj.DtsObjectName == null) {
-                obj = obj.Parent;
-            }
-            if (obj == null) {
-                return "Unnamed";
-            } else {
-                return obj.DtsObjectName;
-            }
         }
         #endregion
 
@@ -524,7 +547,11 @@ namespace csharp_dessist
         private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
         public static SsisObject GetObjectByGuid(Guid g)
         {
-            return _guid_lookup[g];
+            var v = _guid_lookup[g];
+            if (v == null) {
+                Console.WriteLine("Help! Can't find object by GUID " + g.ToString());
+            }
+            return v;
         }
 
         private static List<string> _folder_names = new List<string>();
