@@ -171,6 +171,8 @@ namespace csharp_dessist
                 this.EmitForEachLoop(indent + "    ", sw);
             } else if (exec_type == "SSIS.Pipeline.2") {
                 this.EmitPipeline(indent + "    ", sw);
+            } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.SendMailTask.SendMailTask")) {
+                this.EmitSendMailTask(indent + "    ", sw);
 
             // Something I don't yet understand
             } else {
@@ -190,6 +192,41 @@ namespace csharp_dessist
                     o.EmitFunction(indent, sw);
                 }
             }
+        }
+
+        private void EmitSendMailTask(string indent, StreamWriter sw)
+        {
+            // Navigate to our object data
+            SsisObject mail = GetChildByType("DTS:ObjectData").GetChildByType("SendMailTask:SendMailTaskData");
+
+            sw.WriteLine(@"{0}MailMessage message = new System.Net.Mail.MailMessage();", indent);
+            sw.WriteLine(@"{0}message.To.Add(""{1}"");", indent, mail.Attributes["SendMailTask:To"]);
+            sw.WriteLine(@"{0}message.Subject = ""{1}"";", indent, mail.Attributes["SendMailTask:Subject"]);
+            sw.WriteLine(@"{0}message.From = new System.Net.Mail.MailAddress(""{1}"");", indent, mail.Attributes["SendMailTask:From"]);
+            
+            // Handle CC/BCC if available
+            string addr = null;
+            if (mail.Attributes.TryGetValue("SendMailTask:CC", out addr) && !String.IsNullOrEmpty(addr)) {
+                sw.WriteLine(@"{0}message.CC.Add(""{1}"");", indent, addr);
+            }
+            if (mail.Attributes.TryGetValue("SendMailTask:BCC", out addr) && !String.IsNullOrEmpty(addr)) {
+                sw.WriteLine(@"{0}message.Bcc.Add(""{1}"");", indent, addr);
+            }
+
+            // Process the message source
+            string sourcetype = mail.Attributes["SendMailTask:MessageSourceType"];
+            if (sourcetype == "Variable") {
+                sw.WriteLine(@"{0}message.Body = {1};", indent, FixVariableName(mail.Attributes["SendMailTask:MessageSource"]));
+            } else if (sourcetype == "DirectInput") {
+                sw.WriteLine(@"{0}message.Body = @""{1}"";", indent, mail.Attributes["SendMailTask:MessageSource"].Replace("\"", "\"\""));
+            } else {
+                HelpWriter.Help(this, "I don't understand the SendMail message source type '" + sourcetype + "'");
+            }
+
+            // Get the SMTP configuration name
+            sw.WriteLine(@"{0}using (SmtpClient smtp = new SmtpClient(ConfigurationManager.AppSettings[""{1}""])) {{", indent, GetObjectByGuid(mail.Attributes["SendMailTask:SMTPServer"]).DtsObjectName);
+            sw.WriteLine(@"{0}    smtp.Send(message);", indent);
+            sw.WriteLine(@"{0}}}", indent);
         }
 
         private void EmitSqlTask(string indent, StreamWriter sw)
@@ -637,6 +674,11 @@ namespace csharp_dessist
         }
 
         private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
+        public static SsisObject GetObjectByGuid(string s)
+        {
+            return GetObjectByGuid(Guid.Parse(s));
+        }
+
         public static SsisObject GetObjectByGuid(Guid g)
         {
             var v = _guid_lookup[g];
