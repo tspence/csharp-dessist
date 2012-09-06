@@ -289,7 +289,7 @@ namespace csharp_dessist
 
                 // Is there an expression?
                 if (!String.IsNullOrEmpty(pd.Expression)) {
-                    sw.WriteLine(@"{0}if ({1}) {{", indent, pd.Expression);
+                    sw.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(pd.Expression));
                     PrecedenceChain(pd.Target, precedence, indent + "    ", sw);
                     sw.WriteLine(@"{0}}}", indent);
                 } else {
@@ -675,6 +675,18 @@ namespace csharp_dessist
         #endregion
 
         #region Helper functions
+        public static string FixExpression(string expression)
+        {
+            // Match variables
+            Regex rgx = new Regex("[@][[](?<namespace>.*)[:][:](?<var>.*)]");
+            string s = rgx.Replace(expression, "$2");
+
+            return s
+                .Replace("@", "")
+                .Replace("True", "true")
+                .Replace("False", "false");
+        }
+
         /// <summary>
         /// Converts the namespace into something usable by C#
         /// </summary>
