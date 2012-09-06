@@ -242,46 +242,91 @@ namespace csharp_dessist
         {
             string newindent = indent + "    ";
 
+            // To handle precedence data correctly, first make a list of encumbered children
+            List<SsisObject> modified_children = new List<SsisObject>();
+            modified_children.AddRange(Children);
+
             // Write comments for the precedence data - we'll eventually have to handle this
             List<PrecedenceData> precedence = new List<PrecedenceData>();
             foreach (SsisObject o in Children) {
                 if (o.DtsObjectType == "DTS:PrecedenceConstraint") {
                     PrecedenceData pd = new PrecedenceData(o);
-                    sw.WriteLine("{0}// {1}", newindent, pd.ToString());
+
+                    // Does this precedence data affect any children?  Find it and move it
+                    var c = (from SsisObject obj in modified_children where obj.DtsId == pd.AfterGuid select obj).FirstOrDefault();
+                    modified_children.Remove(c);
+
+                    // Add it to the list
                     precedence.Add(pd);
                 }
             }
 
-            // Function body
-            foreach (SsisObject o in Children) {
+            if (modified_children.Count > 0) {
+                sw.WriteLine("{0}// These calls have no dependencies", newindent);
 
-                // Is this a dummy "Object Data" thing?  If so ignore it and delve deeper
-                SsisObject childobj = o;
-                if (childobj.DtsObjectType == "DTS:ObjectData") {
-                    childobj = childobj.Children[0];
+                // Function body
+                foreach (SsisObject o in modified_children) {
+
+                    // Are there any precedence triggers after this child?
+                    PrecedenceChain(o, precedence, newindent, sw);
                 }
+            }
+        }
 
-                // For variables, emit them within this function
-                if (childobj.DtsObjectType == "DTS:Variable") {
-                    childobj.EmitVariable(newindent, false, sw);
-                } else if (o.DtsObjectType == "DTS:Executable") {
-                    childobj.EmitFunctionCall(newindent, sw);
-                } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
-                    childobj.EmitSqlStatement(newindent, sw);
+        private void PrecedenceChain(SsisObject prior_obj, List<PrecedenceData> precedence, string indent, StreamWriter sw)
+        {
+            EmitOneChild(prior_obj, indent, sw);
 
-                    // TODO: Handle "pipeline" objects
-                } else if (childobj.DtsObjectType == "pipeline") {
-                    childobj.EmitPipeline(newindent, sw);
-                } else if (childobj.DtsObjectType == "DTS:PrecedenceConstraint") {
-                    // ignore it - it's already been handled
-                } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
-                    // Ignore it - I can't figure out any useful information on this object
-                } else if (childobj.DtsObjectType == "DTS:ForEachVariableMapping") {
-                    // ignore it - handled earlier
+            // We just executed "prior_obj" - find what objects it causes to be triggered
+            var triggered = (from PrecedenceData pd in precedence where pd.BeforeGuid == prior_obj.DtsId select pd);
 
+            // Iterate through each of these
+            foreach (PrecedenceData pd in triggered) {
+
+                // Write a comment
+                sw.WriteLine();
+                sw.WriteLine("{0}// {1}", indent, pd.ToString());
+
+                // Is there an expression?
+                if (!String.IsNullOrEmpty(pd.Expression)) {
+                    sw.WriteLine(@"{0}if ({1}) {{", indent, pd.Expression);
+                    PrecedenceChain(pd.Target, precedence, indent + "    ", sw);
+                    sw.WriteLine(@"{0}}}", indent);
                 } else {
-                    HelpWriter.Help(this, "I don't yet know how to handle " + childobj.DtsObjectType);
+                    PrecedenceChain(pd.Target, precedence, indent, sw);
                 }
+            }
+        }
+
+        private void EmitOneChild(SsisObject childobj, string newindent, StreamWriter sw)
+        {
+            // Is this a dummy "Object Data" thing?  If so ignore it and delve deeper
+            if (childobj.DtsObjectType == "DTS:ObjectData") {
+                childobj = childobj.Children[0];
+            }
+
+            // For variables, emit them within this function
+            if (childobj.DtsObjectType == "DTS:Variable") {
+                childobj.EmitVariable(newindent, false, sw);
+            } else if (childobj.DtsObjectType == "DTS:Executable") {
+                childobj.EmitFunctionCall(newindent, sw);
+            } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
+                childobj.EmitSqlStatement(newindent, sw);
+
+                // TODO: Handle "pipeline" objects
+            } else if (childobj.DtsObjectType == "pipeline") {
+                childobj.EmitPipeline(newindent, sw);
+            } else if (childobj.DtsObjectType == "DTS:PrecedenceConstraint") {
+                // ignore it - it's already been handled
+            } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
+                // Ignore it - I can't figure out any useful information on this object
+            } else if (childobj.DtsObjectType == "DTS:ForEachVariableMapping") {
+                // ignore it - handled earlier
+            } else if (childobj.DtsObjectType == "DTS:ForEachEnumerator") {
+                // ignore it - handled explicitly by the foreachloop
+
+            } else {
+                HelpWriter.Help(this, "I don't yet know how to handle " + childobj.DtsObjectType);
             }
         }
 
