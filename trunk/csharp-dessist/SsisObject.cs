@@ -164,13 +164,17 @@ namespace csharp_dessist
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ExecuteSQLTask.ExecuteSQLTask")) {
                 this.EmitSqlTask(indent, sw);
 
+            // Basic "SEQUENCE" construct - just execute things in order!
+            } else if (exec_type.StartsWith("STOCK:SEQUENCE")) {
+                EmitChildObjects(indent, sw);
+
             // Handle "FOR" and "FOREACH" loop types
             } else if (exec_type == "STOCK:FORLOOP") {
                 this.EmitForLoop(indent + "    ", sw);
             } else if (exec_type == "STOCK:FOREACHLOOP") {
                 this.EmitForEachLoop(indent + "    ", sw);
-            } else if (exec_type == "SSIS.Pipeline.2") {
-                this.EmitPipeline(indent + "    ", sw);
+            //} else if (exec_type == "SSIS.Pipeline.2") {
+                //this.EmitPipeline(indent + "    ", sw);
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.SendMailTask.SendMailTask")) {
                 this.EmitSendMailTask(indent + "    ", sw);
 
@@ -199,10 +203,10 @@ namespace csharp_dessist
             // Navigate to our object data
             SsisObject mail = GetChildByType("DTS:ObjectData").GetChildByType("SendMailTask:SendMailTaskData");
 
-            sw.WriteLine(@"{0}MailMessage message = new System.Net.Mail.MailMessage();", indent);
+            sw.WriteLine(@"{0}MailMessage message = new MailMessage();", indent);
             sw.WriteLine(@"{0}message.To.Add(""{1}"");", indent, mail.Attributes["SendMailTask:To"]);
             sw.WriteLine(@"{0}message.Subject = ""{1}"";", indent, mail.Attributes["SendMailTask:Subject"]);
-            sw.WriteLine(@"{0}message.From = new System.Net.Mail.MailAddress(""{1}"");", indent, mail.Attributes["SendMailTask:From"]);
+            sw.WriteLine(@"{0}message.From = new MailAddress(""{1}"");", indent, mail.Attributes["SendMailTask:From"]);
             
             // Handle CC/BCC if available
             string addr = null;
@@ -224,7 +228,7 @@ namespace csharp_dessist
             }
 
             // Get the SMTP configuration name
-            sw.WriteLine(@"{0}using (SmtpClient smtp = new SmtpClient(ConfigurationManager.AppSettings[""{1}""])) {{", indent, GetObjectByGuid(mail.Attributes["SendMailTask:SMTPServer"]).DtsObjectName);
+            sw.WriteLine(@"{0}using (var smtp = new SmtpClient(ConfigurationManager.AppSettings[""{1}""])) {{", indent, GetObjectByGuid(mail.Attributes["SendMailTask:SMTPServer"]).DtsObjectName);
             sw.WriteLine(@"{0}    smtp.Send(message);", indent);
             sw.WriteLine(@"{0}}}", indent);
         }
