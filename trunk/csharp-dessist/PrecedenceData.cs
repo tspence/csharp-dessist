@@ -10,6 +10,13 @@ namespace csharp_dessist
         public Guid BeforeGuid;
         public Guid AfterGuid;
         public string Expression;
+        public SsisObject Target
+        {
+            get
+            {
+                return SsisObject.GetObjectByGuid(AfterGuid);
+            }
+        }
 
         public PrecedenceData(SsisObject o)
         {
@@ -26,9 +33,9 @@ namespace csharp_dessist
         public override string ToString()
         {
             if (String.IsNullOrEmpty(Expression)) {
-                return String.Format(@"Precedence: ""{0}"" before ""{1}""", SsisObject.GetObjectByGuid(BeforeGuid).GetFunctionName(), SsisObject.GetObjectByGuid(AfterGuid).GetFunctionName());
+                return String.Format(@"After ""{0}"" execute ""{1}""", SsisObject.GetObjectByGuid(BeforeGuid).GetFunctionName(), SsisObject.GetObjectByGuid(AfterGuid).GetFunctionName());
             } else {
-                return String.Format(@"IF ({2}) ""{0}"" before ""{1}""", SsisObject.GetObjectByGuid(BeforeGuid).GetFunctionName(), SsisObject.GetObjectByGuid(AfterGuid).GetFunctionName(), Expression);
+                return String.Format(@"After ""{0}"", if ({2}), ""{1}""", SsisObject.GetObjectByGuid(BeforeGuid).GetFunctionName(), SsisObject.GetObjectByGuid(AfterGuid).GetFunctionName(), Expression);
             }
         }
     }

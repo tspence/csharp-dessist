@@ -165,7 +165,7 @@ namespace ");
                     XmlElement child_el = child as XmlElement;
 
                     // Read in a DTS Property
-                    if (child.Name == "DTS:Property") {
+                    if (child.Name == "DTS:Property" || child.Name == "DTS:PropertyExpression") {
                         ReadDtsProperty(child_el, o);
 
                         // Everything else is a sub-object
