@@ -107,61 +107,31 @@ namespace csharp_dessist
         /// <param name="sw"></param>
         internal void EmitVariable(string indent, bool as_global, StreamWriter sw)
         {
-            // Figure out what type of a variable we are
-            string dtstype = this.GetChildByType("DTS:VariableValue").Attributes["DTS:DataType"];
-            string csharptype = null;
-            string defaultvalue = this.GetChildByType("DTS:VariableValue").ContentValue;
-
-            // Here are the DTS type codes I know
-            if (dtstype == "3") {
-                csharptype = "int";
-            } else if (dtstype == "8") {
-                csharptype = "string";
-                if (!String.IsNullOrEmpty(defaultvalue)) {
-                    defaultvalue = "\"" + defaultvalue + "\"";
-                }
-            } else if (dtstype == "13") {
-                csharptype = "DataTable";
-                defaultvalue = "null";
-            } else if (dtstype == "2") {
-                csharptype = "short";
-            } else if (dtstype == "11") {
-                csharptype = "bool";
-                if (defaultvalue == "1") {
-                    defaultvalue = "true";
-                } else {
-                    defaultvalue = "false";
-                }
-            } else if (dtstype == "20") {
-                csharptype = "long";
-            } else if (dtstype == "7") {
-                csharptype = "DateTime";
-                if (!String.IsNullOrEmpty(defaultvalue)) {
-                    defaultvalue = "\"" + defaultvalue + "\"";
-                }
-            } else {
-                HelpWriter.Help(this, "I don't understand DTS type " + dtstype);
-            }
+            VariableData vd = new VariableData(this, as_global);
 
             // Do we add comments for these variables?
             string privilege = "";
             if (as_global) {
-                if (!String.IsNullOrEmpty(Description)) {
+                if (!String.IsNullOrEmpty(vd.Comment)) {
                     sw.WriteLine();
                     sw.WriteLine("{0}/// <summary>", indent);
-                    sw.WriteLine("{0}/// {1}", indent, Description);
+                    sw.WriteLine("{0}/// {1}", indent, vd.Comment);
                     sw.WriteLine("{0}/// </summary>", indent);
                 }
                 privilege = "public static ";
             }
 
             // Write it out
-            if (String.IsNullOrEmpty(defaultvalue)) {
-                sw.WriteLine(String.Format(@"{0}{3}{2} {1};", indent, DtsObjectName, csharptype, privilege));
+            if (String.IsNullOrEmpty(vd.DefaultValue)) {
+                sw.WriteLine(String.Format(@"{0}{3}{2} {1};", indent, vd.VariableName, vd.CSharpType, privilege));
             } else {
-                sw.WriteLine(String.Format(@"{0}{4}{3} {1} = {2};", indent, DtsObjectName, defaultvalue, csharptype, privilege));
+                sw.WriteLine(String.Format(@"{0}{4}{3} {1} = {2};", indent, vd.VariableName, vd.DefaultValue, vd.CSharpType, privilege));
             }
+
+            // Keep track of variables so we can do type conversions in the future!
+            _var_dict[vd.VariableName] = vd;
         }
+        protected static Dictionary<string, VariableData> _var_dict = new Dictionary<string, VariableData>();
 
         /// <summary>
         /// Produce this variable to the current stream
@@ -180,7 +150,8 @@ namespace csharp_dessist
             }
 
             // Function intro
-            sw.WriteLine(String.Format("{0}public static void {1}(){2}        {{", indent, GetFunctionName(), Environment.NewLine));
+            sw.WriteLine(String.Format("{0}public static void {1}()", indent, GetFunctionName()));
+            sw.WriteLine(String.Format("{0}{{", indent));
 
             // What type of executable are we?  Let's check if special handling is required
             string exec_type = Attributes["DTS:ExecutableType"];
@@ -191,7 +162,15 @@ namespace csharp_dessist
 
             // Basic SQL command
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ExecuteSQLTask.ExecuteSQLTask")) {
-                // Already handled within - it's just a single SQL statement
+                this.EmitSqlTask(indent, sw);
+
+            // Handle "FOR" and "FOREACH" loop types
+            } else if (exec_type == "STOCK:FORLOOP") {
+                this.EmitForLoop(indent + "    ", sw);
+            } else if (exec_type == "STOCK:FOREACHLOOP") {
+                this.EmitForEachLoop(indent + "    ", sw);
+            } else if (exec_type == "SSIS.Pipeline.2") {
+                this.EmitPipeline(indent + "    ", sw);
 
             // Something I don't yet understand
             } else {
@@ -202,11 +181,33 @@ namespace csharp_dessist
             // TODO: Check precedence constraints
             // TODO: Create a general purpose lookup of DTSID objects
 
-            // Figure out all the precedence constraints within our child objects
-            List<PrecedenceData> list = new List<PrecedenceData>();
+            // End of function
+            sw.WriteLine("{0}}}", indent);
+
+            // Now emit any other functions that are chained into this
+            foreach (SsisObject o in Children) {
+                if (o.DtsObjectType == "DTS:Executable") {
+                    o.EmitFunction(indent, sw);
+                }
+            }
+        }
+
+        private void EmitSqlTask(string indent, StreamWriter sw)
+        {
+            EmitChildObjects(indent, sw);
+        }
+
+        private void EmitChildObjects(string indent, StreamWriter sw)
+        {
+            string newindent = indent + "    ";
+
+            // Write comments for the precedence data - we'll eventually have to handle this
+            List<PrecedenceData> precedence = new List<PrecedenceData>();
             foreach (SsisObject o in Children) {
                 if (o.DtsObjectType == "DTS:PrecedenceConstraint") {
-                    list.Add(new PrecedenceData(o));
+                    PrecedenceData pd = new PrecedenceData(o);
+                    sw.WriteLine("{0}// {1}", newindent, pd.ToString());
+                    precedence.Add(pd);
                 }
             }
 
@@ -221,33 +222,84 @@ namespace csharp_dessist
 
                 // For variables, emit them within this function
                 if (childobj.DtsObjectType == "DTS:Variable") {
-                    childobj.EmitVariable(indent + "    ", false, sw);
+                    childobj.EmitVariable(newindent, false, sw);
                 } else if (o.DtsObjectType == "DTS:Executable") {
-                    childobj.EmitFunctionCall(indent + "    ", sw);
+                    childobj.EmitFunctionCall(newindent, sw);
                 } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
-                    childobj.EmitSqlStatement(indent + "    ", sw);
+                    childobj.EmitSqlStatement(newindent, sw);
 
-                // TODO: Handle "pipeline" objects
+                    // TODO: Handle "pipeline" objects
                 } else if (childobj.DtsObjectType == "pipeline") {
-                    childobj.EmitPipeline(indent + "    ", sw);
+                    childobj.EmitPipeline(newindent, sw);
                 } else if (childobj.DtsObjectType == "DTS:PrecedenceConstraint") {
                     // ignore it - it's already been handled
                 } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
                     // Ignore it - I can't figure out any useful information on this object
+                } else if (childobj.DtsObjectType == "DTS:ForEachVariableMapping") {
+                    // ignore it - handled earlier
+
                 } else {
                     HelpWriter.Help(this, "I don't yet know how to handle " + childobj.DtsObjectType);
                 }
             }
+        }
 
-            // End of function
-            sw.WriteLine("{0}}}", indent);
+        private void EmitForEachVariableMapping(string indent, StreamWriter sw)
+        {
+            string varname = FixVariableName(this.Properties["VariableName"]);
 
-            // Now emit any other functions that are chained into this
-            foreach (SsisObject o in Children) {
-                if (o.DtsObjectType == "DTS:Executable") {
-                    o.EmitFunction(indent, sw);
+            // Look up the variable data
+            VariableData vd = _var_dict[varname];
+
+            // Produce a line
+            sw.WriteLine(String.Format(@"{0}{1} = ({3})iter.ItemArray[{2}];", indent, varname, this.Properties["ValueIndex"], vd.CSharpType));
+        }
+
+        private void EmitForEachLoop(string indent, StreamWriter sw)
+        {
+            // Retrieve the three settings from the for loop
+            //string init = this.Properties["InitExpression"];
+            //string eval = this.Properties["EvalExpression"];
+            //string assign = this.Properties["AssignExpression"];
+            string iterator = FixVariableName(GetChildByType("DTS:ForEachEnumerator").GetChildByType("DTS:ObjectData").Children[0].Attributes["VarName"]);
+
+            // Write it out - I'm assuming this is a data table for now
+            sw.WriteLine(String.Format(@"{0}foreach (DataRow iter in {1}.Rows) {{", indent, iterator));
+            sw.WriteLine();
+            string newindent = indent + "    ";
+            sw.WriteLine(String.Format(@"{0}// Setup all variable mappings", newindent, iterator));
+
+            // Do all the iteration mappings first
+            foreach (SsisObject childobj in Children) {
+                if (childobj.DtsObjectType == "DTS:ForEachVariableMapping") {
+                    childobj.EmitForEachVariableMapping(indent + "    ", sw);
                 }
             }
+            sw.WriteLine();
+
+            // Other interior objects and tasks
+            EmitChildObjects(indent, sw);
+
+            // Close the loop
+            sw.WriteLine(String.Format(@"{0}}}", indent));
+        }
+
+        private void EmitForLoop(string indent, StreamWriter sw)
+        {
+            // Retrieve the three settings from the for loop
+            string init = System.Net.WebUtility.HtmlDecode(this.Properties["InitExpression"]).Replace("@","");
+            string eval = System.Net.WebUtility.HtmlDecode(this.Properties["EvalExpression"]).Replace("@","");
+            string assign = System.Net.WebUtility.HtmlDecode(this.Properties["AssignExpression"]).Replace("@","");
+            
+
+            // Write it out
+            sw.WriteLine(String.Format(@"{0}for ({1};{2};{3}) {{", indent, init, eval, assign));
+
+            // Inner stuff ?
+            EmitChildObjects(indent, sw);
+
+            // Close the loop
+            sw.WriteLine(String.Format(@"{0}}}", indent));
         }
 
         /// <summary>
@@ -276,17 +328,34 @@ namespace csharp_dessist
             string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}DataTable dt = null;", indent, connstr);
+            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+                sw.WriteLine(@"{0}object result = null;", indent, connstr);
+            } else {
+                sw.WriteLine(@"{0}DataTable result = null;", indent, connstr);
+            }
             sw.WriteLine(@"", indent, connstr);
             sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             sw.WriteLine(@"{0}    conn.Open();", indent);
             sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
 
+            // Handle our parameter binding
+            foreach (SsisObject childobj in Children) {
+                if (childobj.DtsObjectType == "SQLTask:ParameterBinding") {
+                    sw.WriteLine(@"{0}        cmd.Parameters.AddWithValue(""{1}"", {2});", indent, childobj.Attributes["SQLTask:ParameterName"], FixVariableName(childobj.Attributes["SQLTask:DtsVariableName"]));
+                }
+            }
+
+            // What type of variable reading are we doing?
+            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+                sw.WriteLine(@"{0}        result = cmd.ExecuteScalar();", indent);
+            } else {
+                sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
+                sw.WriteLine(@"{0}        result = new DataTable();", indent);
+                sw.WriteLine(@"{0}        result.Load(dr);", indent);
+                sw.WriteLine(@"{0}        dr.Close();", indent);
+            }
+
             // Finish up the SQL call
-            sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
-            sw.WriteLine(@"{0}        dt = new DataTable();", indent);
-            sw.WriteLine(@"{0}        dt.Load(dr);", indent);
-            sw.WriteLine(@"{0}        dr.Close();", indent);
             sw.WriteLine(@"{0}    }}", indent);
             sw.WriteLine(@"{0}}}", indent);
 
@@ -294,11 +363,17 @@ namespace csharp_dessist
             SsisObject binding = GetChildByType("SQLTask:ResultBinding");
             if (binding != null) {
                 string varname = binding.Attributes["SQLTask:DtsVariableName"];
+                string fixedname = FixVariableName(varname);
+                VariableData vd = _var_dict[fixedname];
 
                 // Emit our binding
                 sw.WriteLine(@"{0}", indent);
-                sw.WriteLine(@"{0}// Bind results to ", indent, varname);
-                sw.WriteLine(@"{0}{1} = dt;", indent, varname.Replace("User::", ""));
+                sw.WriteLine(@"{0}// Bind results to {1}", indent, varname);
+                if (vd.CSharpType == "DataTable") {
+                    sw.WriteLine(@"{0}{1} = result;", indent, FixVariableName(varname));
+                } else {
+                    sw.WriteLine(@"{0}{1} = ({2})result;", indent, FixVariableName(varname), vd.CSharpType);
+                }
             }
         }
 
@@ -514,6 +589,21 @@ namespace csharp_dessist
         #endregion
 
         #region Helper functions
+        /// <summary>
+        /// Converts the namespace into something usable by C#
+        /// </summary>
+        /// <param name="original_variable_name"></param>
+        /// <returns></returns>
+        public static string FixVariableName(string original_variable_name)
+        {
+            // We are simply stripping out namespaces for the moment
+            int p = original_variable_name.IndexOf("::");
+            if (p > 0) {
+                return original_variable_name.Substring(p + 2);
+            }
+            return original_variable_name;
+        }
+
         private static List<string> _func_names = new List<string>();
         public string GetFunctionName()
         {
@@ -579,7 +669,7 @@ namespace csharp_dessist
         public Guid GetNearestGuid()
         {
             SsisObject o = this;
-            while (o != null && o.DtsId == null) {
+            while (o != null && (o.DtsId == null || o.DtsId == Guid.Empty)) {
                 o = o.Parent;
             }
             if (o != null) return o.DtsId;
