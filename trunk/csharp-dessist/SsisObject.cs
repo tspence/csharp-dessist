@@ -173,8 +173,8 @@ namespace csharp_dessist
                 this.EmitForLoop(indent + "    ", sw);
             } else if (exec_type == "STOCK:FOREACHLOOP") {
                 this.EmitForEachLoop(indent + "    ", sw);
-            //} else if (exec_type == "SSIS.Pipeline.2") {
-                //this.EmitPipeline(indent + "    ", sw);
+            } else if (exec_type == "SSIS.Pipeline.2") {
+                this.EmitPipeline(indent + "    ", sw);
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.SendMailTask.SendMailTask")) {
                 this.EmitSendMailTask(indent + "    ", sw);
 
@@ -481,36 +481,65 @@ namespace csharp_dessist
         private void EmitPipeline(string indent, StreamWriter sw)
         {
             // Find the component container
-            var component_container = (from c in this.Children where c.DtsObjectType == "components" select c).FirstOrDefault();
-            if (component_container == null) return;
+            var component_container = GetChildByType("DTS:ObjectData").GetChildByType("pipeline").GetChildByType("components");
+            if (component_container == null) {
+                HelpWriter.Help(this, "Unable to find SSIS components!");
+                return;
+            }
 
             // Produce a "row count" variable we can use
             sw.WriteLine(@"{0}int row_count = 0;", indent);
 
-            // Iterate through all child components
-            foreach (SsisObject child in component_container.Children) {
-                string componentClassId = child.Attributes["componentClassID"];
+            // Produce all the readers
+            var readers = component_container.GetChildrenByTypeAndAttr("componentClassID", "{BCEFE59B-6819-47F7-A125-63753B33ABB7}");
+            foreach (SsisObject child in readers) {
+
+                // Put in a comment for each component
+                sw.WriteLine();
+                sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
+
+                // Emit the reader logic
+                child.EmitPipelineReader(indent, sw);
+                _lineage_columns.AddRange(child._lineage_columns);
+            }
+
+            // Iterate through all transformations
+            var transforms = component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}");
+            foreach (SsisObject child in transforms) {
+
+                // Put in a comment for each component
+                sw.WriteLine();
+                sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
+
+                // Produce the transformation
+                child.EmitPipelineTransform(indent, sw);
+                _lineage_columns.AddRange(child._lineage_columns);
+            }
+
+            // Iterate through all writers
+            var writers = component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}");
+            foreach (SsisObject child in writers) {
 
                 // Put in a comment for each component
                 sw.WriteLine();
                 sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
 
                 // What type of component is this?  Is it a reader?
-                if (componentClassId == "{BCEFE59B-6819-47F7-A125-63753B33ABB7}") {
-                    child.EmitPipelineReader(indent, sw);
-                    _lineage_columns.AddRange(child._lineage_columns);
+                child._lineage_columns = this._lineage_columns;
+                child.EmitPipelineWriter(indent, sw);
+            }
+        }
 
-                    // Is it a transform?
-                } else if (componentClassId == "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}") {
-                    child.EmitPipelineTransform(indent, sw);
-                    _lineage_columns.AddRange(child._lineage_columns);
-
-                    // Is it a save?
-                } else if (componentClassId == "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}") {
-                    child._lineage_columns = this._lineage_columns;
-                    child.EmitPipelineWriter(indent, sw);
+        private List<SsisObject> GetChildrenByTypeAndAttr(string attr_key, string value)
+        {
+            List<SsisObject> list = new List<SsisObject>();
+            foreach (SsisObject child in Children) {
+                string attr = null;
+                if (child.Attributes.TryGetValue(attr_key, out attr) && string.Equals(attr, value)) {
+                    list.Add(child);
                 }
             }
+            return list;
         }
 
         private void EmitPipelineWriter(string indent, StreamWriter sw)
@@ -550,6 +579,7 @@ namespace csharp_dessist
                 // Parameter setup instructions
                 if (lo == null) {
                     HelpWriter.Help(this, "I couldn't find lineage column " + lineageId);
+                    paramsetup.AppendFormat(@"{0}            // Unable to find column {1}{2}", indent, lineageId, Environment.NewLine);
                 } else {
                     paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
 ", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn);
