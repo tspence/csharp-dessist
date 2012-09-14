@@ -289,7 +289,7 @@ namespace csharp_dessist
 
                 // Is there an expression?
                 if (!String.IsNullOrEmpty(pd.Expression)) {
-                    sw.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(pd.Expression));
+                    sw.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(_lineage_columns, pd.Expression));
                     PrecedenceChain(pd.Target, precedence, indent + "    ", sw);
                     sw.WriteLine(@"{0}}}", indent);
                 } else {
@@ -344,9 +344,6 @@ namespace csharp_dessist
         private void EmitForEachLoop(string indent, StreamWriter sw)
         {
             // Retrieve the three settings from the for loop
-            //string init = this.Properties["InitExpression"];
-            //string eval = this.Properties["EvalExpression"];
-            //string assign = this.Properties["AssignExpression"];
             string iterator = FixVariableName(GetChildByType("DTS:ForEachEnumerator").GetChildByType("DTS:ObjectData").Children[0].Attributes["VarName"]);
 
             // Write it out - I'm assuming this is a data table for now
@@ -490,43 +487,44 @@ namespace csharp_dessist
             // Produce a "row count" variable we can use
             sw.WriteLine(@"{0}int row_count = 0;", indent);
 
+            // Keep track of original components
+            List<SsisObject> components = new List<SsisObject>();
+            components.AddRange(component_container.Children);
+
             // Produce all the readers
-            var readers = component_container.GetChildrenByTypeAndAttr("componentClassID", "{BCEFE59B-6819-47F7-A125-63753B33ABB7}");
-            foreach (SsisObject child in readers) {
-
-                // Put in a comment for each component
-                sw.WriteLine();
-                sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
-
-                // Emit the reader logic
-                child.EmitPipelineReader(indent, sw);
-                _lineage_columns.AddRange(child._lineage_columns);
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BCEFE59B-6819-47F7-A125-63753B33ABB7}")) {
+                child.EmitPipelineReader(this, indent, sw);
+                components.Remove(child);
             }
 
             // Iterate through all transformations
-            var transforms = component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}");
-            foreach (SsisObject child in transforms) {
-
-                // Put in a comment for each component
-                sw.WriteLine();
-                sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
-
-                // Produce the transformation
-                child.EmitPipelineTransform(indent, sw);
-                _lineage_columns.AddRange(child._lineage_columns);
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}")) {
+                child.EmitPipelineTransform(this, indent, sw);
+                components.Remove(child);
             }
 
-            // Iterate through all writers
-            var writers = component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}");
-            foreach (SsisObject child in writers) {
+            // Iterate through all transformations - this is basically the same thing but this time it uses "expression" rather than "type conversion"
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{2932025B-AB99-40F6-B5B8-783A73F80E24}")) {
+                child.EmitPipelineTransform(this, indent, sw);
+                components.Remove(child);
+            }
 
-                // Put in a comment for each component
-                sw.WriteLine();
-                sw.WriteLine(@"{0}// {1}", indent, child.Attributes["name"]);
+            // Iterate through all multicasts
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{1ACA4459-ACE0-496F-814A-8611F9C27E23}")) {
+                //child.EmitPipelineMulticast(this, indent, sw);
+                sw.WriteLine(@"{0}// MULTICAST: Using all input and writing to multiple outputs", indent);
+                components.Remove(child);
+            }
 
-                // What type of component is this?  Is it a reader?
-                child._lineage_columns = this._lineage_columns;
-                child.EmitPipelineWriter(indent, sw);
+            // Process all the writers
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}")) {
+                child.EmitPipelineWriter(this, indent, sw);
+                components.Remove(child);
+            }
+
+            // Report all unknown components
+            foreach (SsisObject component in components) {
+                HelpWriter.Help(this, "I don't know how to process componentClassID = " + component.Attributes["componentClassID"]);
             }
         }
 
@@ -542,8 +540,11 @@ namespace csharp_dessist
             return list;
         }
 
-        private void EmitPipelineWriter(string indent, StreamWriter sw)
+        private void EmitPipelineWriter(SsisObject pipeline, string indent, StreamWriter sw)
         {
+            sw.WriteLine();
+            sw.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
+
             // Get the connection string GUID: it's this.connections.connection
             string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
             string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
@@ -574,7 +575,7 @@ namespace csharp_dessist
 
                 // Find the source column in our lineage data
                 string lineageId = column.Attributes["lineageId"];
-                LineageObject lo = (from l in _lineage_columns where l.LineageId == lineageId select l).FirstOrDefault();
+                LineageObject lo = (from l in pipeline._lineage_columns where l.LineageId == lineageId select l).FirstOrDefault();
 
                 // Parameter setup instructions
                 if (lo == null) {
@@ -616,18 +617,22 @@ namespace csharp_dessist
             sw.WriteLine(@"{0}}}", indent);
         }
 
-        private void EmitPipelineTransform(string indent, StreamWriter sw)
+        private void EmitPipelineTransform(SsisObject pipeline, string indent, StreamWriter sw)
         {
+            sw.WriteLine();
+            sw.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
+
             // Create a new datatable
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
 
             // Add the columns we're generating
             int i = 0;
-            foreach (SsisObject outcol in this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children) {
+            List<SsisObject> transforms = this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children;
+            foreach (SsisObject outcol in transforms) {
                 LineageObject lo = new LineageObject(outcol, this);
                 lo.DataTableColumn = i;
                 i++;
-                _lineage_columns.Add(lo);
+                pipeline._lineage_columns.Add(lo);
 
                 // Print out this column
                 sw.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], outcol.Attributes["name"], LookupSsisTypeName(outcol.Attributes["dataType"]));
@@ -636,12 +641,53 @@ namespace csharp_dessist
 
             // Populate these columns
             sw.WriteLine(@"{0}for (int row = 0; row < row_count; row++) {{", indent);
-            sw.WriteLine(@"{0}    // TODO: Transform the columns here", indent);
+            sw.WriteLine(@"{0}    DataRow dr = component{1}.NewRow();", indent, this.Attributes["id"]);
+
+            // Let's see if we can generate some code to do these conversions!
+            foreach (SsisObject col in transforms) {
+                LineageObject source_lineage = null;
+                string expression = null;
+
+                // Find property "expression"
+                if (col.Children.Count > 0) {
+                    foreach (SsisObject property in col.GetChildByType("properties").Children) {
+                        if (property.Attributes["name"] == "SourceInputColumnLineageID") {
+                            source_lineage = (from LineageObject l in pipeline._lineage_columns where (l.LineageId == property.ContentValue) select l).FirstOrDefault();
+                            expression = String.Format(@"Convert.ChangeType({1}.Rows[row][{2}], typeof({0}));", LookupSsisTypeName(col.Attributes["dataType"]), source_lineage.DataTableName, source_lineage.DataTableColumn);
+                        } else if (property.Attributes["name"] == "FastParse") {
+                            // Don't need to do anything here
+                        } else if (property.Attributes["name"] == "Expression") {
+
+                            // Is this a lineage column?
+                            expression = FixExpression(pipeline._lineage_columns, property.ContentValue) + ";";
+                        } else if (property.Attributes["name"] == "FriendlyExpression") {
+                            // This comment is useless - sw.WriteLine(@"{0}    // {1}", indent, property.ContentValue);
+                        } else {
+                            HelpWriter.Help(this, "I don't understand the output column property '" + property.Attributes["name"] + "'");
+                        }
+                    }
+
+                    // If we haven't been given an explicit expression, just use this
+                    if (String.IsNullOrEmpty(expression)) {
+                        HelpWriter.Help(this, "I'm trying to do a transform, but I haven't found an expression to use.");
+                    } else {
+                        sw.WriteLine(@"{0}    dr[""{1}""] = {2}", indent, col.Attributes["name"], expression);
+                    }
+                } else {
+                    HelpWriter.Help(this, "I'm trying to do a transform, but I don't have any properties to use.");
+                }
+            }
+
+            // Write the end of this code block
+            sw.WriteLine(@"{0}    component{1}.Rows.Add(dr);", indent, this.Attributes["id"]);
             sw.WriteLine(@"{0}}}", indent);
         }
 
-        private void EmitPipelineReader(string indent, StreamWriter sw)
+        private void EmitPipelineReader(SsisObject pipeline, string indent, StreamWriter sw)
         {
+            sw.WriteLine();
+            sw.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
+
             // Get the connection string GUID: it's this.connections.connection
             string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
             string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
@@ -662,7 +708,7 @@ namespace csharp_dessist
                 LineageObject lo = new LineageObject(outcol, this);
                 lo.DataTableColumn = i;
                 i++;
-                _lineage_columns.Add(lo);
+                pipeline._lineage_columns.Add(lo);
             }
 
             // Write the using clause for the connection
@@ -705,12 +751,60 @@ namespace csharp_dessist
         #endregion
 
         #region Helper functions
-        public static string FixExpression(string expression)
+        private string ParseExpression(string expression)
         {
-            // Match variables
-            Regex rgx = new Regex("[@][[](?<namespace>.*)[:][:](?<var>.*)]");
-            string s = rgx.Replace(expression, "$2");
+            // I need to handle a few cases that I know about:
 
+            // Pattern 1: a constant.  Example: "C", 0, "".
+            // Pattern 2: a lineage column.  Example: #254
+            // Pattern 3: a global variable.  Example: @[User::CompanyId]
+            // Pattern 4: a type conversion (note: requires a following object).  Example: (DT_WSTR,10)
+            return expression + ";";
+            /*
+            if (property.ContentValue.StartsWith("#")) {
+                int colid = int.Parse(property.ContentValue.Substring(1));
+                source_lineage = (from LineageObject l in pipeline._lineage_columns where (l.LineageId == property.ContentValue) select l).FirstOrDefault();
+                expression = String.Format(@"Convert.ChangeType({1}.Rows[row][{2}], typeof({0}));", LookupSsisTypeName(col.Attributes["dataType"]), source_lineage.DataTableName, source_lineage.DataTableColumn);
+
+                // No clue - probably a constant
+            } else {
+                expression = property.ContentValue + ";";
+            }*/
+        }
+
+        public static string FixExpression(List<LineageObject> list, string expression)
+        {
+            Regex r = null;
+            string s = expression;
+
+            // Here are the expression cases I know about:
+            // Pattern 1: Constant.  Example: "C", 0, "", True, False.
+            // Pattern 2: Lineage column.  Example: #254
+            // Pattern 3: Variables.  Example: @[User::CompanyId]
+            // Pattern 4: Type conversion (note: requires a following object).  Example: (DT_WSTR,10)
+            // Pattern 5: Concatenation or addition.  Example: +
+
+            // Pattern 2: Match lineage columns and replace them with valid names
+            r = new Regex("[#](?<col>\\d*)");
+            while (true) {
+                Match m = r.Match(s);
+                if (m.Success) {
+                    int lineage_column_number = int.Parse(m.Value.Substring(1));
+                    LineageObject lo = (from LineageObject l in list where l.LineageId == m.Value.Substring(1) select l).FirstOrDefault();
+                    if (lo == null) {
+                        HelpWriter.Help(null, "Unable to find lineage object " + m.Value);
+                        s = s.Replace(m.Value, "// Missing lineage - " + m.Value.Substring(1));
+                    } else {
+                        s = s.Replace(m.Value, String.Format("{0}.Rows[row][{1}]", lo.DataTableName, lo.DataTableColumn));
+                    }
+                } else break;
+            }
+
+            // Pattern 3: Match variables and replace them with their global names
+            r = new Regex("[@][[](?<namespace>.*)[:][:](?<var>.*)]");
+            s = r.Replace(s, "$2");
+
+            // Return the fixed expression
             return s
                 .Replace("@", "")
                 .Replace("True", "true")
@@ -756,8 +850,20 @@ namespace csharp_dessist
         {
             if (p == "i2") {
                 return "System.Int16";
-            } else if (p == "str") {
+            } else if (p == "i4") {
+                return "System.Int32";
+            } else if (p == "i8") {
+                return "System.Int64";
+            } else if (p == "str" || p == "wstr") {
                 return "System.String";
+            } else if (p == "dbTimeStamp") {
+                return "System.DateTime";
+            } else if (p == "r4" || p == "r8") {
+                return "double";
+
+            // Currency
+            } else if (p == "cy" || p == "numeric") { 
+                return "System.Decimal";
             } else {
                 HelpWriter.Help(null, "I don't yet understand the SSIS type named " + p);
             }
