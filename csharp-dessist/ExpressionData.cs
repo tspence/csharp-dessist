@@ -107,11 +107,11 @@ namespace csharp_dessist
 
         public override string ToCSharp()
         {
-            if (TypeRef == "System.String") {
-                return "\"" + Value + "\"";
-            } else {
+            //if (TypeRef == "System.String") {
+            //    return "\"" + Value + "\"";
+            //} else {
                 return Value;
-            }
+            //}
         }
     }
 
