@@ -184,8 +184,6 @@ namespace csharp_dessist
             }
 
             // TODO: Is there an exception handler?  How many types of event handlers are there?
-            // TODO: Check precedence constraints
-            // TODO: Create a general purpose lookup of DTSID objects
 
             // End of function
             sw.WriteLine("{0}}}", indent);
@@ -289,7 +287,7 @@ namespace csharp_dessist
 
                 // Is there an expression?
                 if (!String.IsNullOrEmpty(pd.Expression)) {
-                    sw.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(_lineage_columns, pd.Expression));
+                    sw.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(_lineage_columns, pd.Expression, true));
                     PrecedenceChain(pd.Target, precedence, indent + "    ", sw);
                     sw.WriteLine(@"{0}}}", indent);
                 } else {
@@ -659,7 +657,7 @@ namespace csharp_dessist
                         } else if (property.Attributes["name"] == "Expression") {
 
                             // Is this a lineage column?
-                            expression = FixExpression(pipeline._lineage_columns, property.ContentValue) + ";";
+                            expression = FixExpression(pipeline._lineage_columns, property.ContentValue, false);
                         } else if (property.Attributes["name"] == "FriendlyExpression") {
                             // This comment is useless - sw.WriteLine(@"{0}    // {1}", indent, property.ContentValue);
                         } else {
@@ -772,43 +770,10 @@ namespace csharp_dessist
             }*/
         }
 
-        public static string FixExpression(List<LineageObject> list, string expression)
+        public static string FixExpression(List<LineageObject> list, string expression, bool inline)
         {
-            Regex r = null;
-            string s = expression;
-
-            // Here are the expression cases I know about:
-            // Pattern 1: Constant.  Example: "C", 0, "", True, False.
-            // Pattern 2: Lineage column.  Example: #254
-            // Pattern 3: Variables.  Example: @[User::CompanyId]
-            // Pattern 4: Type conversion (note: requires a following object).  Example: (DT_WSTR,10)
-            // Pattern 5: Concatenation or addition.  Example: +
-
-            // Pattern 2: Match lineage columns and replace them with valid names
-            r = new Regex("[#](?<col>\\d*)");
-            while (true) {
-                Match m = r.Match(s);
-                if (m.Success) {
-                    int lineage_column_number = int.Parse(m.Value.Substring(1));
-                    LineageObject lo = (from LineageObject l in list where l.LineageId == m.Value.Substring(1) select l).FirstOrDefault();
-                    if (lo == null) {
-                        HelpWriter.Help(null, "Unable to find lineage object " + m.Value);
-                        s = s.Replace(m.Value, "// Missing lineage - " + m.Value.Substring(1));
-                    } else {
-                        s = s.Replace(m.Value, String.Format("{0}.Rows[row][{1}]", lo.DataTableName, lo.DataTableColumn));
-                    }
-                } else break;
-            }
-
-            // Pattern 3: Match variables and replace them with their global names
-            r = new Regex("[@][[](?<namespace>.*)[:][:](?<var>.*)]");
-            s = r.Replace(s, "$2");
-
-            // Return the fixed expression
-            return s
-                .Replace("@", "")
-                .Replace("True", "true")
-                .Replace("False", "false");
+            ExpressionData ed = new ExpressionData(list, expression);
+            return ed.ToCSharp(inline);
         }
 
         /// <summary>
@@ -846,8 +811,13 @@ namespace csharp_dessist
             return _FunctionName;
         }
 
-        private static string LookupSsisTypeName(string p)
+        public static string LookupSsisTypeName(string p)
         {
+            // Skip Data Transformation Underscore
+            if (p.StartsWith("DT_")) p = p.Substring(3);
+            p = p.ToLower();
+
+            // Okay, let's check real stuff
             if (p == "i2") {
                 return "System.Int16";
             } else if (p == "i4") {
