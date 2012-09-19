@@ -129,7 +129,7 @@ namespace ");
 ");
                 // Write each executable out as a function
                 foreach (SsisObject v in functions) {
-                    v.EmitFunction("        ", sw);
+                    v.EmitFunction("        ", sw, new List<VariableData>());
                 }
 
                 // Write the footer

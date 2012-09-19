@@ -97,7 +97,11 @@ namespace csharp_dessist
 
         public override string ToCSharp()
         {
-            return String.Format("Convert.ChangeType({0}, typeof({1}))", TokenToConvert.ToCSharp(), TypeRef);
+            if (TypeRef == "System.String") {
+                return String.Format("({0}).ToString()", TokenToConvert.ToCSharp());
+            } else {
+                return String.Format("Convert.ChangeType({0}, typeof({1}))", TokenToConvert.ToCSharp(), TypeRef);
+            }
         }
     }
 
@@ -107,11 +111,7 @@ namespace csharp_dessist
 
         public override string ToCSharp()
         {
-            //if (TypeRef == "System.String") {
-            //    return "\"" + Value + "\"";
-            //} else {
-                return Value;
-            //}
+            return Value;
         }
     }
 
