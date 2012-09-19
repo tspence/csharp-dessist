@@ -17,5 +17,10 @@ namespace csharp_dessist
             this.LineageId = outcol.Attributes["lineageId"];
             this.DataTableName = "component" + component.Attributes["id"];
         }
+
+        public override string ToString()
+        {
+            return String.Format("{0}.Rows[row][{1}]", DataTableName, DataTableColumn);
+        }
     }
 }
