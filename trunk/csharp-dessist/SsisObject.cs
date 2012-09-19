@@ -54,6 +54,7 @@ namespace csharp_dessist
         public string ContentValue;
 
         private List<LineageObject> _lineage_columns = new List<LineageObject>();
+        private List<VariableData> _scope_variables = new List<VariableData>();
 
         #region Shortcuts
 
@@ -105,7 +106,7 @@ namespace csharp_dessist
         /// <param name="indent_depth"></param>
         /// <param name="as_global"></param>
         /// <param name="sw"></param>
-        internal void EmitVariable(string indent, bool as_global, StreamWriter sw)
+        internal VariableData EmitVariable(string indent, bool as_global, StreamWriter sw)
         {
             VariableData vd = new VariableData(this, as_global);
 
@@ -130,6 +131,7 @@ namespace csharp_dessist
 
             // Keep track of variables so we can do type conversions in the future!
             _var_dict[vd.VariableName] = vd;
+            return vd;
         }
         protected static Dictionary<string, VariableData> _var_dict = new Dictionary<string, VariableData>();
 
@@ -139,8 +141,10 @@ namespace csharp_dessist
         /// <param name="indent_depth"></param>
         /// <param name="as_global"></param>
         /// <param name="sw"></param>
-        internal void EmitFunction(string indent, StreamWriter sw)
+        internal void EmitFunction(string indent, StreamWriter sw, List<VariableData> scope_variables)
         {
+            _scope_variables.AddRange(scope_variables);
+
             // Header and comments
             sw.WriteLine();
             if (!String.IsNullOrEmpty(Description)) {
@@ -150,7 +154,7 @@ namespace csharp_dessist
             }
 
             // Function intro
-            sw.WriteLine(String.Format("{0}public static void {1}()", indent, GetFunctionName()));
+            sw.WriteLine(String.Format("{0}public static void {1}({2})", indent, GetFunctionName(), GetScopeVariables(true)));
             sw.WriteLine(String.Format("{0}{{", indent));
 
             // What type of executable are we?  Let's check if special handling is required
@@ -191,7 +195,7 @@ namespace csharp_dessist
             // Now emit any other functions that are chained into this
             foreach (SsisObject o in Children) {
                 if (o.DtsObjectType == "DTS:Executable") {
-                    o.EmitFunction(indent, sw);
+                    o.EmitFunction(indent, sw, _scope_variables);
                 }
             }
         }
@@ -305,9 +309,9 @@ namespace csharp_dessist
 
             // For variables, emit them within this function
             if (childobj.DtsObjectType == "DTS:Variable") {
-                childobj.EmitVariable(newindent, false, sw);
+                _scope_variables.Add(childobj.EmitVariable(newindent, false, sw));
             } else if (childobj.DtsObjectType == "DTS:Executable") {
-                childobj.EmitFunctionCall(newindent, sw);
+                childobj.EmitFunctionCall(newindent, sw, GetScopeVariables(false));
             } else if (childobj.DtsObjectType == "SQLTask:SqlTaskData") {
                 childobj.EmitSqlStatement(newindent, sw);
 
@@ -388,9 +392,10 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="indent"></param>
         /// <param name="sw"></param>
-        private void EmitFunctionCall(string indent, StreamWriter sw)
+        private void EmitFunctionCall(string indent, StreamWriter sw, string scope_variables)
         {
-            sw.WriteLine(String.Format(@"{0}{1}();", indent, GetFunctionName()));
+            // Write the function call
+            sw.WriteLine(String.Format(@"{0}{1}({2});", indent, GetFunctionName(), scope_variables));
         }
 
         /// <summary>
@@ -789,6 +794,23 @@ namespace csharp_dessist
                 return original_variable_name.Substring(p + 2);
             }
             return original_variable_name;
+        }
+
+        public string GetScopeVariables(bool include_type)
+        {
+            // Do we have any variables to pass?
+            StringBuilder p = new StringBuilder();
+            if (include_type) {
+                foreach (VariableData vd in _scope_variables) {
+                    p.AppendFormat("ref {0} {1}, ", vd.CSharpType, vd.VariableName);
+                }
+            } else {
+                foreach (VariableData vd in _scope_variables) {
+                    p.AppendFormat("ref {0}, ", vd.VariableName);
+                }
+            }
+            if (p.Length > 0) p.Length -= 2;
+            return p.ToString();
         }
 
         private static List<string> _func_names = new List<string>();
