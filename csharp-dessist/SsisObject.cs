@@ -413,52 +413,65 @@ namespace csharp_dessist
             // Retrieve the SQL String and put it in a resource
             string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
 
-            // Write the using clause for the connection
-            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
-                sw.WriteLine(@"{0}object result = null;", indent, connstr);
+            // Does this SQL statement include any nested "GO" commands?  Let's make a simple call
+            if (IsSqlCmdStatement(Attributes["SQLTask:SqlStatementSource"])) {
+                sw.WriteLine(@"{0}// This SQL statement is a compound statement that must be run from the SQL Management object", indent);
+                sw.WriteLine(@"{0}using (SqlConnection conn = new SqlConnection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr);
+                sw.WriteLine(@"{0}    ServerConnection svrconn = new ServerConnection(conn);", indent);
+                sw.WriteLine(@"{0}    Server server = new Server(svrconn);", indent);
+                sw.WriteLine(@"{0}    server.ConnectionContext.ExecuteNonQuery(Resource1.{1});", indent, sql_attr_name);
+                sw.WriteLine(@"{0}}}", indent);
+
+            // This is not a compound SQL statement; execute it like a traditional SQL string
             } else {
-                sw.WriteLine(@"{0}DataTable result = null;", indent, connstr);
-            }
-            sw.WriteLine(@"", indent, connstr);
-            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
-            sw.WriteLine(@"{0}    conn.Open();", indent);
-            sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
 
-            // Handle our parameter binding
-            foreach (SsisObject childobj in Children) {
-                if (childobj.DtsObjectType == "SQLTask:ParameterBinding") {
-                    sw.WriteLine(@"{0}        cmd.Parameters.AddWithValue(""{1}"", {2});", indent, childobj.Attributes["SQLTask:ParameterName"], FixVariableName(childobj.Attributes["SQLTask:DtsVariableName"]));
-                }
-            }
-
-            // What type of variable reading are we doing?
-            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
-                sw.WriteLine(@"{0}        result = cmd.ExecuteScalar();", indent);
-            } else {
-                sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
-                sw.WriteLine(@"{0}        result = new DataTable();", indent);
-                sw.WriteLine(@"{0}        result.Load(dr);", indent);
-                sw.WriteLine(@"{0}        dr.Close();", indent);
-            }
-
-            // Finish up the SQL call
-            sw.WriteLine(@"{0}    }}", indent);
-            sw.WriteLine(@"{0}}}", indent);
-
-            // Do we have a result binding?
-            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
-            if (binding != null) {
-                string varname = binding.Attributes["SQLTask:DtsVariableName"];
-                string fixedname = FixVariableName(varname);
-                VariableData vd = _var_dict[fixedname];
-
-                // Emit our binding
-                sw.WriteLine(@"{0}", indent);
-                sw.WriteLine(@"{0}// Bind results to {1}", indent, varname);
-                if (vd.CSharpType == "DataTable") {
-                    sw.WriteLine(@"{0}{1} = result;", indent, FixVariableName(varname));
+                // Write the using clause for the connection
+                if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+                    sw.WriteLine(@"{0}object result = null;", indent, connstr);
                 } else {
-                    sw.WriteLine(@"{0}{1} = ({2})result;", indent, FixVariableName(varname), vd.CSharpType);
+                    sw.WriteLine(@"{0}DataTable result = null;", indent, connstr);
+                }
+                sw.WriteLine(@"", indent, connstr);
+                sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
+                sw.WriteLine(@"{0}    conn.Open();", indent);
+                sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_attr_name, connprefix);
+
+                // Handle our parameter binding
+                foreach (SsisObject childobj in Children) {
+                    if (childobj.DtsObjectType == "SQLTask:ParameterBinding") {
+                        sw.WriteLine(@"{0}        cmd.Parameters.AddWithValue(""{1}"", {2});", indent, childobj.Attributes["SQLTask:ParameterName"], FixVariableName(childobj.Attributes["SQLTask:DtsVariableName"]));
+                    }
+                }
+
+                // What type of variable reading are we doing?
+                if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+                    sw.WriteLine(@"{0}        result = cmd.ExecuteScalar();", indent);
+                } else {
+                    sw.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
+                    sw.WriteLine(@"{0}        result = new DataTable();", indent);
+                    sw.WriteLine(@"{0}        result.Load(dr);", indent);
+                    sw.WriteLine(@"{0}        dr.Close();", indent);
+                }
+
+                // Finish up the SQL call
+                sw.WriteLine(@"{0}    }}", indent);
+                sw.WriteLine(@"{0}}}", indent);
+
+                // Do we have a result binding?
+                SsisObject binding = GetChildByType("SQLTask:ResultBinding");
+                if (binding != null) {
+                    string varname = binding.Attributes["SQLTask:DtsVariableName"];
+                    string fixedname = FixVariableName(varname);
+                    VariableData vd = _var_dict[fixedname];
+
+                    // Emit our binding
+                    sw.WriteLine(@"{0}", indent);
+                    sw.WriteLine(@"{0}// Bind results to {1}", indent, varname);
+                    if (vd.CSharpType == "DataTable") {
+                        sw.WriteLine(@"{0}{1} = result;", indent, FixVariableName(varname));
+                    } else {
+                        sw.WriteLine(@"{0}{1} = ({2})result;", indent, FixVariableName(varname), vd.CSharpType);
+                    }
                 }
             }
         }
@@ -698,7 +711,15 @@ namespace csharp_dessist
 
             // Get the SQL statement
             string sql = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "SqlCommand").ContentValue;
-            if (sql == null) sql = "COULD NOT FIND SQL STATEMENT";
+            if (sql == null) {
+                string rowset = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "OpenRowset").ContentValue;
+                if (rowset == null) {
+                    sql = "COULD NOT FIND SQL STATEMENT";
+                    HelpWriter.Help(pipeline, String.Format("Could not find SQL for {0} in {1}", Attributes["name"], this.DtsId));
+                } else {
+                    sql = "SELECT * FROM " + rowset;
+                }
+            }
             string sql_resource_name = ProjectWriter.AddSqlResource(GetParentDtsName() + "_ReadPipe", sql);
 
             // Produce a data set that we're going to process - name it after ourselves
@@ -754,6 +775,18 @@ namespace csharp_dessist
         #endregion
 
         #region Helper functions
+
+        /// <summary>
+        /// Determines if the SQL statement is written in SQLCMD style (e.g. including "GO" statements) or as a regular SQL string
+        /// </summary>
+        /// <param name="sql"></param>
+        /// <returns></returns>
+        private static bool IsSqlCmdStatement(string sql)
+        {
+            // TODO: There really should be a better way to determine this
+            return sql.Contains("\r\nGO\r\n") || sql.Contains("\nGO\n");
+        }
+
         private string ParseExpression(string expression)
         {
             // I need to handle a few cases that I know about:

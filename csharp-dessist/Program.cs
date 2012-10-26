@@ -85,6 +85,8 @@ using System.Net.Mail;
 using System.Text;
 using System.Xml;
 using System.IO;
+using Microsoft.SqlServer.Management.Common;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace ");
                 sw.Write(appname);
