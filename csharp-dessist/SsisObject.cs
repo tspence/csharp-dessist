@@ -156,6 +156,7 @@ namespace csharp_dessist
             // Function intro
             sw.WriteLine(String.Format("{0}public static void {1}({2})", indent, GetFunctionName(), GetScopeVariables(true)));
             sw.WriteLine(String.Format("{0}{{", indent));
+            sw.WriteLine(String.Format(@"{0}    Console.WriteLine(""{{0}} In {1}"", DateTime.Now);", indent, GetFunctionName()));
 
             // What type of executable are we?  Let's check if special handling is required
             string exec_type = Attributes["DTS:ExecutableType"];
@@ -394,8 +395,13 @@ namespace csharp_dessist
         /// <param name="sw"></param>
         private void EmitFunctionCall(string indent, StreamWriter sw, string scope_variables)
         {
-            // Write the function call
-            sw.WriteLine(String.Format(@"{0}{1}({2});", indent, GetFunctionName(), scope_variables));
+            // Is this call disabled?
+            if (Properties["Disabled"] == "-1") {
+                sw.WriteLine(String.Format(@"{0}// SSIS records this function call is disabled", indent));
+                sw.WriteLine(String.Format(@"{0}// {1}({2});", indent, GetFunctionName(), scope_variables));
+            } else {
+                sw.WriteLine(String.Format(@"{0}{1}({2});", indent, GetFunctionName(), scope_variables));
+            }
         }
 
         /// <summary>
@@ -411,11 +417,13 @@ namespace csharp_dessist
             string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
             bool is_sqlcmd = IsSqlCmdStatement(Attributes["SQLTask:SqlStatementSource"]);
 
-            // Report potential problems
+            // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
+            string fixup = "";
             if (is_sqlcmd && connprefix == "OleDb") {
-                sw.WriteLine(@"{0}// TODO: This is a bad SQL connection; it should use ADO.NET rather than OleDb.", indent);
-                HelpWriter.Help(this, "Compound SQL statement was executed through OleDb - need to switch to ADO.NET");
+                sw.WriteLine(@"{0}// TODO: This code uses an OleDb connection with SQL Server Management Objects - check it first!", indent);
+                //HelpWriter.Help(this, "Compound SQL statement was executed through OleDb - need to switch to ADO.NET");
                 connprefix = "Sql";
+                fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
             }
 
             // Retrieve the SQL String and put it in a resource
@@ -427,10 +435,11 @@ namespace csharp_dessist
             } else {
                 sw.WriteLine(@"{0}DataTable result = null;", indent, connstr);
             }
+            sw.WriteLine(@"{0}Console.WriteLine(""{{0}} SQL: {1}"", DateTime.Now);", indent, sql_attr_name);
             sw.WriteLine();
 
             // Open the connection
-            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""]{3})) {{", indent, connstr, connprefix, fixup);
             sw.WriteLine(@"{0}    conn.Open();", indent);
 
             // Does this SQL statement include any nested "GO" commands?  Let's make a simple call
@@ -442,7 +451,9 @@ namespace csharp_dessist
                 sw.WriteLine(@"{0}    Server server = new Server(svrconn);", indent);
                 sw.WriteLine(@"{0}    server.ConnectionContext.SqlExecutionModes = SqlExecutionModes.CaptureSql;", indent, sql_attr_name);
                 sw.WriteLine(@"{0}    server.ConnectionContext.ExecuteNonQuery(Resource1.{1});", indent, sql_attr_name);
+                sw.WriteLine(@"{0}    int statement = 0;", indent);
                 sw.WriteLine(@"{0}    foreach (string s in server.ConnectionContext.CapturedSql.Text) {{", indent);
+                sw.WriteLine(@"{0}        Console.WriteLine(""{{0}} Statement {{1}} of {{2}}"", DateTime.Now, statement++, server.ConnectionContext.CapturedSql.Text.Count);", indent);
                 sql_variable_name = "s";
                 indent = indent + "    ";
             } else {
