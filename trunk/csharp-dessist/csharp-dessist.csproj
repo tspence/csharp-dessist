@@ -93,6 +93,17 @@
   <ItemGroup>
     <None Include="Resources\DllReferenceTemplate.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Microsoft.SqlServer.ConnectionInfo.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Microsoft.SqlServer.Management.Sdk.Sfc.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Microsoft.SqlServer.Smo.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

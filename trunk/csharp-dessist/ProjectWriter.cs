@@ -145,6 +145,11 @@ namespace csharp_dessist
                 .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper());
             File.WriteAllText(Path.Combine(folder, appname + ".csproj"), project);
 
+            // Copy the Microsoft SQL Server objects!
+            File.Copy("Microsoft.SqlServer.ConnectionInfo.dll", Path.Combine(folder, "Microsoft.SqlServer.ConnectionInfo.dll"), true);
+            File.Copy("Microsoft.SqlServer.Management.Sdk.Sfc.dll", Path.Combine(folder, "Microsoft.SqlServer.Management.Sdk.Sfc.dll"), true);
+            File.Copy("Microsoft.SqlServer.Smo.dll", Path.Combine(folder, "Microsoft.SqlServer.Smo.dll"), true);
+
             // Spit out the solution file
             Guid sln_guid = Guid.NewGuid();
             string solution =

@@ -19,8 +19,11 @@ namespace csharp_dessist
 
                 // Write the header
                 sw.WriteLine(@"<?xml version=""1.0"" encoding=""utf-8""?>");
-                sw.WriteLine("<configuration>");
-                sw.WriteLine("  <appSettings>");
+                sw.WriteLine(@"<configuration>");
+                sw.WriteLine(@"  <startup useLegacyV2RuntimeActivationPolicy=""true"">");
+                sw.WriteLine(@"    <supportedRuntime version=""v4.0""/>");
+                sw.WriteLine(@"  </startup>");
+                sw.WriteLine(@"  <appSettings>");
 
                 // Write each one in turn
                 foreach (SsisObject connstr in connstrings) {
