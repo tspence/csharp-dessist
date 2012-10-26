@@ -95,6 +95,12 @@ namespace csharp_dessist
             }
         }
 
+        public ConversionToken(string ParamTypeRef, Token ParamTokenToConvert)
+        {
+            TypeRef = ParamTypeRef;
+            TokenToConvert = ParamTokenToConvert;
+        }
+
         public override string ToCSharp()
         {
             if (TypeRef == "System.String") {
@@ -175,6 +181,13 @@ namespace csharp_dessist
             // Is this a math operation?
             } else if (c == '+' || c == '-' || c == '*' || c == '/') {
                 s = s.Substring(1); 
+
+                // Is the token on top of the stack an unknown lineage?
+                if (_tokens[_tokens.Count - 1] is LineageToken) {
+                    LineageToken lt = _tokens[_tokens.Count - 1] as LineageToken;
+                    _tokens.Remove(lt);
+                    _tokens.Add(new ConversionToken("System.String", lt));
+                }
                 return (new OperationToken() { Op = c.ToString() });
 
             // Check for solo negation or not-equals

@@ -350,7 +350,9 @@ namespace csharp_dessist
             string iterator = FixVariableName(GetChildByType("DTS:ForEachEnumerator").GetChildByType("DTS:ObjectData").Children[0].Attributes["VarName"]);
 
             // Write it out - I'm assuming this is a data table for now
+            sw.WriteLine(String.Format(@"{0}int current_row_num = 0;", indent));
             sw.WriteLine(String.Format(@"{0}foreach (DataRow iter in {1}.Rows) {{", indent, iterator));
+            sw.WriteLine(String.Format(@"{0}    Console.WriteLine(""{{0}} Loop: On row {{1}} of {{2}}"", DateTime.Now, ++current_row_num, {1}.Rows.Count);", indent, iterator));
             sw.WriteLine();
             string newindent = indent + "    ";
             sw.WriteLine(String.Format(@"{0}// Setup all variable mappings", newindent, iterator));
@@ -376,7 +378,6 @@ namespace csharp_dessist
             string init = System.Net.WebUtility.HtmlDecode(this.Properties["InitExpression"]).Replace("@","");
             string eval = System.Net.WebUtility.HtmlDecode(this.Properties["EvalExpression"]).Replace("@","");
             string assign = System.Net.WebUtility.HtmlDecode(this.Properties["AssignExpression"]).Replace("@","");
-            
 
             // Write it out
             sw.WriteLine(String.Format(@"{0}for ({1};{2};{3}) {{", indent, init, eval, assign));
@@ -419,8 +420,8 @@ namespace csharp_dessist
 
             // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
             string fixup = "";
-            if (is_sqlcmd && connprefix == "OleDb") {
-                sw.WriteLine(@"{0}// TODO: This code uses an OleDb connection with SQL Server Management Objects - check it first!", indent);
+            if (connprefix == "OleDb") {
+                sw.WriteLine(@"{0}// TODO: This code uses an OleDb connection.  DESSIST must rewrite it to ADO.NET.  Check this connection!", indent);
                 //HelpWriter.Help(this, "Compound SQL statement was executed through OleDb - need to switch to ADO.NET");
                 connprefix = "Sql";
                 fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
@@ -451,9 +452,9 @@ namespace csharp_dessist
                 sw.WriteLine(@"{0}    Server server = new Server(svrconn);", indent);
                 sw.WriteLine(@"{0}    server.ConnectionContext.SqlExecutionModes = SqlExecutionModes.CaptureSql;", indent, sql_attr_name);
                 sw.WriteLine(@"{0}    server.ConnectionContext.ExecuteNonQuery(Resource1.{1});", indent, sql_attr_name);
-                sw.WriteLine(@"{0}    int statement = 0;", indent);
+                //sw.WriteLine(@"{0}    int statement = 0;", indent);
                 sw.WriteLine(@"{0}    foreach (string s in server.ConnectionContext.CapturedSql.Text) {{", indent);
-                sw.WriteLine(@"{0}        Console.WriteLine(""{{0}} Statement {{1}} of {{2}}"", DateTime.Now, statement++, server.ConnectionContext.CapturedSql.Text.Count);", indent);
+                //sw.WriteLine(@"{0}        Console.WriteLine(""{{0}} Statement {{1}} of {{2}}"", DateTime.Now, ++statement, server.ConnectionContext.CapturedSql.Text.Count);", indent);
                 sql_variable_name = "s";
                 indent = indent + "    ";
             } else {
@@ -598,6 +599,15 @@ namespace csharp_dessist
             string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
             string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
+            // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
+            string fixup = "";
+            if (connprefix == "OleDb") {
+                sw.WriteLine(@"{0}// TODO: This code uses an OleDb connection.  DESSIST must rewrite it to ADO.NET.  Check this connection!", indent);
+                //HelpWriter.Help(this, "Compound SQL statement was executed through OleDb - need to switch to ADO.NET");
+                connprefix = "Sql";
+                fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
+            }
+
             // It's our problem to produce the SQL statement, because this writer uses calculated data!
             StringBuilder sql = new StringBuilder();
             StringBuilder colnames = new StringBuilder();
@@ -642,15 +652,16 @@ namespace csharp_dessist
             sql.Append(GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "OpenRowset").ContentValue);
             sql.Append(" (");
             sql.Append(colnames.ToString());
-            sql.Append(") VALUES ");
+            sql.Append(") VALUES (");
             sql.Append(varnames.ToString());
+            sql.Append(")");
             string sql_resource_name = ProjectWriter.AddSqlResource(GetParentDtsName() + "_WritePipe", sql.ToString());
 
             // Produce a data set that we're going to process - name it after ourselves
             sw.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""]{3})) {{", indent, connstr, connprefix, fixup);
             sw.WriteLine(@"{0}    conn.Open();", indent);
 
             // TODO: SQL Parameters should go in here
@@ -741,6 +752,15 @@ namespace csharp_dessist
             string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
             string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
 
+            // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
+            string fixup = "";
+            //if (connprefix == "OleDb") {
+            //    sw.WriteLine(@"{0}// TODO: This code uses an OleDb connection.  DESSIST must rewrite it to ADO.NET.  Check this connection!", indent);
+            //    //HelpWriter.Help(this, "Compound SQL statement was executed through OleDb - need to switch to ADO.NET");
+            //    connprefix = "Sql";
+            //    fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
+            //}
+
             // Get the SQL statement
             string sql = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "SqlCommand").ContentValue;
             if (sql == null) {
@@ -768,7 +788,7 @@ namespace csharp_dessist
             }
 
             // Write the using clause for the connection
-            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
+            sw.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""]{3})) {{", indent, connstr, connprefix, fixup);
             sw.WriteLine(@"{0}    conn.Open();", indent);
             sw.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
 
