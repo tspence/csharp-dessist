@@ -633,10 +633,12 @@ namespace csharp_dessist
             }
 
             // Loop through all the inputs and process them!
+            SsisObject outputcolumns = this.GetChildByType("outputs").GetChildByType("output").GetChildByType("outputColumns");
             foreach (SsisObject inputtable in this.GetChildByType("inputs").Children) {
 
                 // Find the name of the table by looking at the first column
                 SsisObject input_columns = inputtable.GetChildByType("inputColumns");
+                SsisObject metadata = inputtable.GetChildByType("externalMetadataColumns");
                 if (input_columns != null) {
                     SsisObject first_col = input_columns.Children[0];
                     LineageObject first_input = pipeline.GetLineageObjectById(first_col.Attributes["lineageId"]);
@@ -647,12 +649,22 @@ namespace csharp_dessist
                     sw.WriteLine(@"{0}    DataRow dr = component{1}.NewRow();", indent, this.Attributes["id"]);
 
                     // Loop through all the columns and insert them
-                    int column = 0;
                     foreach (SsisObject col in inputtable.GetChildByType("inputColumns").Children) {
                         LineageObject l = pipeline.GetLineageObjectById(col.Attributes["lineageId"]);
 
+                        // find the matching external metadata column 
+                        string outcolname = "";
+                        SsisObject mdcol = metadata.GetChildByTypeAndAttr("externalMetadataColumn", "id", col.Attributes["externalMetadataColumnId"]);
+                        if (mdcol == null) {
+                            SsisObject prop = col.GetChildByType("properties").GetChildByType("property");
+                            SsisObject outcol = outputcolumns.GetChildByTypeAndAttr("outputColumn", "id", prop.ContentValue);
+                            outcolname = outcol.Attributes["name"];
+                        } else {
+                            outcolname = mdcol.Attributes["name"];
+                        }
+
                         // Write out the expression
-                        sw.WriteLine(@"{0}    dr[{1}] = {2}", indent, column++, FixExpression(pipeline._lineage_columns, "#" + col.Attributes["lineageId"], false));
+                        sw.WriteLine(@"{0}    dr[""{1}""] = {2}.Rows[row][""{1}""];", indent, outcolname, l.DataTableName);
                     }
 
                     // Write the end of this code block
