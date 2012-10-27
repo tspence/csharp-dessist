@@ -621,8 +621,8 @@ namespace csharp_dessist
             List<SsisObject> transforms = this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children;
             List<string> colnames = new List<string>();
             foreach (SsisObject outcol in transforms) {
-                LineageObject lo = new LineageObject(outcol, this);
-                lo.DataTableColumn = i;
+                LineageObject lo = new LineageObject(outcol.Attributes["lineageId"], "component" + this.Attributes["id"], outcol.Attributes["name"]);
+                //lo.DataTableColumn = i;
                 i++;
                 pipeline._lineage_columns.Add(lo);
 
@@ -772,14 +772,14 @@ namespace csharp_dessist
 
                     // Is this a string?  If so, forcibly truncate it
                     if (mdcol.Attributes["dataType"] == "str") {
-                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.VarChar, {4}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}.Rows[row][{3}]));
-", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn, mdcol.Attributes["length"]);
+                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.VarChar, {4}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}.Rows[row][""{3}""]));
+", indent, mdcol.Attributes["name"], lo.DataTableName, lo.FieldName, mdcol.Attributes["length"]);
                     } else if (mdcol.Attributes["dataType"] == "wstr") {
-                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.NVarChar, {4}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}.Rows[row][{3}]));
-", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn, mdcol.Attributes["length"]);
+                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.NVarChar, {4}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}.Rows[row][""{3}""]));
+", indent, mdcol.Attributes["name"], lo.DataTableName, lo.FieldName, mdcol.Attributes["length"]);
                     } else {
-                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][{3}]);
-", indent, mdcol.Attributes["name"], lo.DataTableName, lo.DataTableColumn);
+                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2}.Rows[row][""{3}""]);
+", indent, mdcol.Attributes["name"], lo.DataTableName, lo.FieldName);
                     }
                 }
             }
@@ -840,8 +840,8 @@ namespace csharp_dessist
             int i = 0;
             List<SsisObject> transforms = this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children;
             foreach (SsisObject outcol in transforms) {
-                LineageObject lo = new LineageObject(outcol, this);
-                lo.DataTableColumn = i;
+                LineageObject lo = new LineageObject(outcol.Attributes["lineageId"], "component" + this.Attributes["id"], outcol.Attributes["name"]);
+                //lo.DataTableColumn = i;
                 i++;
                 pipeline._lineage_columns.Add(lo);
 
@@ -880,7 +880,7 @@ namespace csharp_dessist
                     foreach (SsisObject property in col.GetChildByType("properties").Children) {
                         if (property.Attributes["name"] == "SourceInputColumnLineageID") {
                             source_lineage = pipeline.GetLineageObjectById(property.ContentValue);
-                            expression = String.Format(@"Convert.ChangeType({1}.Rows[row][{2}], typeof({0}));", LookupSsisTypeName(col.Attributes["dataType"]), source_lineage.DataTableName, source_lineage.DataTableColumn);
+                            expression = String.Format(@"Convert.ChangeType({1}.Rows[row][""{2}""], typeof({0}));", LookupSsisTypeName(col.Attributes["dataType"]), source_lineage.DataTableName, source_lineage.FieldName);
                         } else if (property.Attributes["name"] == "FastParse") {
                             // Don't need to do anything here
                         } else if (property.Attributes["name"] == "Expression") {
@@ -949,8 +949,8 @@ namespace csharp_dessist
             // TODO: Handle error output columns
             int i = 0;
             foreach (SsisObject outcol in this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children) {
-                LineageObject lo = new LineageObject(outcol, this);
-                lo.DataTableColumn = i;
+                LineageObject lo = new LineageObject(outcol.Attributes["lineageId"], "component" + this.Attributes["id"], outcol.Attributes["name"]);
+                //lo.DataTableColumn = i;
                 i++;
                 pipeline._lineage_columns.Add(lo);
             }
