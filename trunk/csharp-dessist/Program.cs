@@ -71,10 +71,10 @@ namespace csharp_dessist
         /// <param name="p"></param>
         private static void WriteProgram(IEnumerable<SsisObject> variables, IEnumerable<SsisObject> functions, string filename, string appname)
         {
-            using (StreamWriter sw = new StreamWriter(filename, false, Encoding.UTF8)) {
+            using (SourceWriter.SourceFileStream = new StreamWriter(filename, false, Encoding.UTF8)) {
 
                 // Write the header
-                sw.Write(@"using System;
+                SourceWriter.Write(@"using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -89,8 +89,8 @@ using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 
 namespace ");
-                sw.Write(appname);
-                sw.Write(@"
+                SourceWriter.Write(appname);
+                SourceWriter.Write(@"
 {
     public class Program
     {
@@ -106,8 +106,8 @@ namespace ");
             ");
 
                 // Emit a function call to the first function in the application
-                sw.Write(functions.FirstOrDefault().GetFunctionName());
-                sw.Write(@"();
+                SourceWriter.Write(functions.FirstOrDefault().GetFunctionName());
+                SourceWriter.Write(@"();
         }
 #endregion
 
@@ -120,10 +120,10 @@ namespace ");
 
                 // Write each variable out as if it's a global
                 foreach (SsisObject v in variables) {
-                    v.EmitVariable("        ", true, sw);
+                    v.EmitVariable("        ", true);
                 }
 
-                sw.Write(@"
+                SourceWriter.Write(@"
 #endregion
 
 
@@ -131,11 +131,11 @@ namespace ");
 ");
                 // Write each executable out as a function
                 foreach (SsisObject v in functions) {
-                    v.EmitFunction("        ", sw, new List<VariableData>());
+                    v.EmitFunction("        ", new List<VariableData>());
                 }
 
                 // Write the footer
-                sw.WriteLine(@"
+                SourceWriter.WriteLine(@"
 #endregion
     }
 }");

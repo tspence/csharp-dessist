@@ -39,7 +39,7 @@ namespace csharp_dessist
                     Namespace = m.Groups[1].Value;
                     s = s.Substring(m.Index + m.Length + 1);
                 } else {
-                    HelpWriter.Help(null, "Unable to parse variable '" + s + "'");
+                    SourceWriter.Help(null, "Unable to parse variable '" + s + "'");
                 }
             }
         }
@@ -65,7 +65,7 @@ namespace csharp_dessist
                     s = s.Substring(m.Index + m.Length);
                     LineageRef = li;
                 } else {
-                    HelpWriter.Help(null, "Unable to find lineage reference #" + s);
+                    SourceWriter.Help(null, "Unable to find lineage reference #" + s);
                 }
             }
         }
@@ -91,7 +91,7 @@ namespace csharp_dessist
                 TypeRef = SsisObject.LookupSsisTypeName(m.Groups[1].Value);
                 TokenToConvert = parent.ConsumeToken(ref s);
             } else {
-                HelpWriter.Help(null, "Unable to parse conversion token " + s);
+                SourceWriter.Help(null, "Unable to parse conversion token " + s);
             }
         }
 
@@ -234,7 +234,7 @@ namespace csharp_dessist
             }
 
             // Did we fail to process this token?  Fail out
-            HelpWriter.Help(null, "Unable to parse expression '" + _expression + "'");
+            SourceWriter.Help(null, "Unable to parse expression '" + _expression + "'");
             s = "";
             return null;
         }

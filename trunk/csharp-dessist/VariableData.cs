@@ -54,7 +54,7 @@ namespace csharp_dessist
                     DefaultValue = "DateTime.Parse(\"" + DefaultValue + "\")";
                 }
             } else {
-                HelpWriter.Help(o, "I don't understand DTS type " + DtsType);
+                SourceWriter.Help(o, "I don't understand DTS type " + DtsType);
             }
         }
     }

@@ -9,22 +9,32 @@ namespace csharp_dessist
     {
         public string LineageId;
         public string DataTableName;
-        //public int DataTableColumn;
         public string FieldName;
+        public string Transform;
 
         public LineageObject(string lineage_id, string table_name, string field_name)
         {
-            // TODO: Complete member initialization
-            //this.LineageId = outcol.Attributes["lineageId"];
-            //this.DataTableName = "component" + component.Attributes["id"];
             LineageId = lineage_id;
             DataTableName = table_name;
             FieldName = field_name;
         }
 
+        public LineageObject(string lineage_id, string lineage_transform)
+        {
+            LineageId = lineage_id;
+            Transform = lineage_transform;
+            if (Transform[Transform.Length - 1] == ';') {
+                Transform = Transform.Substring(0, Transform.Length - 1);
+            }
+        }
+
         public override string ToString()
         {
-            return String.Format(@"{0}.Rows[row][""{1}""]", DataTableName, FieldName);
+            if (DataTableName == null) {
+                return Transform;
+            } else {
+                return String.Format(@"{0}.Rows[row][""{1}""]", DataTableName, FieldName);
+            }
         }
     }
 }

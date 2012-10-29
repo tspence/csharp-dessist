@@ -14,7 +14,7 @@ namespace csharp_dessist
         public static List<string> AllFiles = new List<string>();
         public static List<string> DllFiles = new List<string>();
 
-        public static void EmitScriptProject(SsisObject o, string indent, StreamWriter sw)
+        public static void EmitScriptProject(SsisObject o, string indent)
         {
             // Find the script object child
             var script = o.GetChildByType("DTS:ObjectData").GetChildByType("ScriptProject");
@@ -41,10 +41,13 @@ namespace csharp_dessist
                     DllFiles.Add(fn);
 
                     // Show the user that this is how the script should be executed
-                    sw.WriteLine(@"{0}// Execute the script project {1}", indent, o.GetFolderName());
-                    sw.WriteLine(@"{0}// This script has been extracted to the folder {1}", indent, project_folder);
-                    sw.WriteLine(@"{0}//{1}.ScriptMain sm = new {1}.ScriptMain();", indent, Path.GetFileNameWithoutExtension(fn).Replace("scripttask", "ScriptTask"));
-                    sw.WriteLine(@"{0}//sm.Main();", indent);
+                    SourceWriter.WriteLine(@"{0}// Execute the script project {1}", indent, o.GetFolderName());
+                    SourceWriter.WriteLine(@"{0}// This script has been extracted to the folder {1}", indent, project_folder);
+                    SourceWriter.WriteLine(@"{0}//{1}.ScriptMain sm = new {1}.ScriptMain();", indent, Path.GetFileNameWithoutExtension(fn).Replace("scripttask", "ScriptTask"));
+                    SourceWriter.WriteLine(@"{0}//sm.Main();", indent);
+
+                    // Note this as a potential problem
+                    SourceWriter.Help(o, "The Visual Basic project " + child.Attributes["Name"] + " was embedded in the DTSX project.  Visual Basic code cannot be automatically converted.");
 
                 // Is this a project file?
                 } else if (fn.EndsWith(".vbproj") || fn.EndsWith(".csproj")) {
@@ -169,15 +172,15 @@ namespace csharp_dessist
 
             // Write out the help notes
             Console.WriteLine("Decompilation completed.");
-            if (HelpWriter._help_messages.Count > 0) {
+            if (SourceWriter._help_messages.Count > 0) {
                 string helpfile = Path.Combine(folder, "ImportErrors.txt");
                 File.Delete(helpfile);
                 using (StreamWriter sw = new StreamWriter(helpfile)) {
-                    foreach (String help in HelpWriter._help_messages) {
+                    foreach (String help in SourceWriter._help_messages) {
                         sw.WriteLine(help);
                     }
                 }
-                Console.WriteLine("{0} import errors encountered.", HelpWriter._help_messages.Count);
+                Console.WriteLine("{0} import errors encountered.", SourceWriter._help_messages.Count);
                 Console.WriteLine("Import errors written to " + helpfile);
                 Console.WriteLine();
                 Console.WriteLine("Please consider sharing a copy of your SSIS package with the DESSIST team.");
