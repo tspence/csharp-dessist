@@ -40,16 +40,14 @@ namespace csharp_dessist
                 if (fn.EndsWith(".dll")) {
                     DllFiles.Add(fn);
 
-                    // Show the user that this is how the script should be executed
-                    SourceWriter.WriteLine(@"{0}// Execute the script project {1}", indent, o.GetFolderName());
-                    SourceWriter.WriteLine(@"{0}// This script has been extracted to the folder {1}", indent, project_folder);
-                    SourceWriter.WriteLine(@"{0}//{1}.ScriptMain sm = new {1}.ScriptMain();", indent, Path.GetFileNameWithoutExtension(fn).Replace("scripttask", "ScriptTask"));
-                    SourceWriter.WriteLine(@"{0}//sm.Main();", indent);
-
                     // Note this as a potential problem
                     SourceWriter.Help(o, "The Visual Basic project " + child.Attributes["Name"] + " was embedded in the DTSX project.  Visual Basic code cannot be automatically converted.");
 
-                // Is this a project file?
+                    // Show the user that this is how the script should be executed, if they want to fix it
+                    SourceWriter.WriteLine(@"{0}//{1}.ScriptMain sm = new {1}.ScriptMain();", indent, Path.GetFileNameWithoutExtension(fn).Replace("scripttask", "ScriptTask"));
+                    SourceWriter.WriteLine(@"{0}//sm.Main();", indent);
+
+                    // Is this a project file?
                 } else if (fn.EndsWith(".vbproj") || fn.EndsWith(".csproj")) {
                     ProjectFiles.Add(fn);
                 } else {
@@ -169,6 +167,9 @@ namespace csharp_dessist
                 .Replace("@@ASSEMBLYGUID@@", asy_guid.ToString())
                 .Replace("@@APPNAME@@", appname);
             File.WriteAllText(Path.Combine(propfolder, "AssemblyInfo.cs"), assembly);
+
+            // Spit out the assembly file
+            File.WriteAllText(Path.Combine(propfolder, "RecursiveTimeLog.cs"), Resource1.RecursiveTimeLog);
 
             // Write out the help notes
             Console.WriteLine("Decompilation completed.");

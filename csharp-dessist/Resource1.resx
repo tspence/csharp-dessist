@@ -136,6 +136,9 @@
   <data name="ProjectTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\ProjectTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="RecursiveTimeLog" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\RecursiveTimeLog.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
   <data name="ResourceDesignerTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\ResourceDesignerTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>

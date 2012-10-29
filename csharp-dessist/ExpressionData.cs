@@ -106,7 +106,7 @@ namespace csharp_dessist
             if (TypeRef == "System.String") {
                 return String.Format("({0}).ToString()", TokenToConvert.ToCSharp());
             } else {
-                return String.Format("Convert.ChangeType({0}, typeof({1}))", TokenToConvert.ToCSharp(), TypeRef);
+                return String.Format("({1})(Convert.ChangeType({0}, typeof({1})))", TokenToConvert.ToCSharp(), TypeRef);
             }
         }
     }
@@ -137,13 +137,15 @@ namespace csharp_dessist
         protected string _expression;
         public List<LineageObject> Lineage;
         protected List<Token> _tokens;
+        protected string _expected_type;
 
         // Some regular expression searches for tokens - I'm not sure if they're really the optimal solution but they work
         private static Regex STRING_REGEX = new Regex("^[\"](?<value>.*)[\"]");
         private static Regex NUMBER_REGEX = new Regex("^(?<value>\\d*)");
         
-        public ExpressionData(List<LineageObject> lineage, string raw_expression)
+        public ExpressionData(string expected_type, List<LineageObject> lineage, string raw_expression)
         {
+            _expected_type = expected_type;
             _expression = raw_expression;
             Lineage = lineage;
             _tokens = new List<Token>();
@@ -181,13 +183,6 @@ namespace csharp_dessist
             // Is this a math operation?
             } else if (c == '+' || c == '-' || c == '*' || c == '/') {
                 s = s.Substring(1); 
-
-                // Is the token on top of the stack an unknown lineage?
-                if (_tokens[_tokens.Count - 1] is LineageToken) {
-                    LineageToken lt = _tokens[_tokens.Count - 1] as LineageToken;
-                    _tokens.Remove(lt);
-                    _tokens.Add(new ConversionToken("System.String", lt));
-                }
                 return (new OperationToken() { Op = c.ToString() });
 
             // Check for solo negation or not-equals
@@ -243,7 +238,14 @@ namespace csharp_dessist
         {
             StringBuilder sb = new StringBuilder();
             foreach (Token t in _tokens) {
-                sb.Append(t.ToCSharp());
+
+                // Is this an unassigned lineage token object?  We store those in DataTables, which are "object"s.  
+                // If so, produce a strict type expectation
+                if ((t is LineageToken) && (_expected_type != "System.String")) {
+                    sb.AppendFormat("(({0})({1}))", _expected_type, t.ToCSharp());
+                } else {
+                    sb.Append(t.ToCSharp());
+                }
             }
 
             // Only show comment and end-statement if this is a solo statement
