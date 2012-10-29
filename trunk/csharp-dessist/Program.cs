@@ -92,8 +92,22 @@ namespace ");
                 SourceWriter.Write(appname);
                 SourceWriter.Write(@"
 {
+    public static class Extensions
+    {
+        public static string FixupOleDb(this string s)
+        {
+            int p = s.IndexOf(""Provider="", StringComparison.CurrentCultureIgnoreCase);
+            if (p >= 0) {
+                int p2 = s.IndexOf(';', p + 1);
+                return s.Substring(0, p) + s.Substring(p2 + 1);
+            }
+            return s;
+        }
+    }
+
     public class Program
     {
+        public static RecursiveTimeLog timer = new RecursiveTimeLog();
 
 
 #region Main()
@@ -108,6 +122,7 @@ namespace ");
                 // Emit a function call to the first function in the application
                 SourceWriter.Write(functions.FirstOrDefault().GetFunctionName());
                 SourceWriter.Write(@"();
+            Console.WriteLine(timer.GetTimings());
         }
 #endregion
 
@@ -195,7 +210,6 @@ namespace ");
         private static void ReadDtsProperty(XmlElement el, SsisObject o)
         {
             string prop_name = null;
-            string prop_value = null;
 
             // Read all the attributes
             foreach (XmlAttribute xa in el.Attributes) {

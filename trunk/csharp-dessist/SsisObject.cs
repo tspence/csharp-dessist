@@ -167,9 +167,9 @@ namespace csharp_dessist
             }
 
             // Function intro
-            SourceWriter.WriteLine(String.Format("{0}public static void {1}({2})", indent, GetFunctionName(), GetScopeVariables(true)));
-            SourceWriter.WriteLine(String.Format("{0}{{", indent));
-            SourceWriter.WriteLine(String.Format(@"{0}    Console.WriteLine(""{{0}} In {1}"", DateTime.Now);", indent, GetFunctionName()));
+            SourceWriter.WriteLine("{0}public static void {1}({2})", indent, GetFunctionName(), GetScopeVariables(true));
+            SourceWriter.WriteLine("{0}{{", indent);
+            SourceWriter.WriteLine(@"{0}    timer.Enter(""{1}"");", indent, GetFunctionName());
 
             // What type of executable are we?  Let's check if special handling is required
             string exec_type = Attributes["DTS:ExecutableType"];
@@ -204,6 +204,7 @@ namespace csharp_dessist
             // TODO: Is there an exception handler?  How many types of event handlers are there?
 
             // End of function
+            SourceWriter.WriteLine("{0}    timer.Leave();", indent);
             SourceWriter.WriteLine("{0}}}", indent);
 
             // Now emit any other functions that are chained into this
@@ -305,7 +306,7 @@ namespace csharp_dessist
 
                 // Is there an expression?
                 if (!String.IsNullOrEmpty(pd.Expression)) {
-                    SourceWriter.WriteLine(@"{0}if ({1}) {{", indent, FixExpression(_lineage_columns, pd.Expression, true));
+                    SourceWriter.WriteLine(@"{0}if ({1}) {{", indent, FixExpression("System.Boolean", _lineage_columns, pd.Expression, true));
                     PrecedenceChain(pd.Target, precedence, indent + "    ");
                     SourceWriter.WriteLine(@"{0}}}", indent);
                 } else {
@@ -434,10 +435,9 @@ namespace csharp_dessist
             // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
             string fixup = "";
             if (connprefix == "OleDb") {
-                SourceWriter.WriteLine(@"{0}// TODO: This code uses an OleDb connection.  DESSIST must rewrite it to ADO.NET.  Check this connection!", indent);
                 SourceWriter.Help(this, "DESSIST had to rewrite an OleDb connection as an ADO.NET connection.  Please check it for correctness.");
                 connprefix = "Sql";
-                fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
+                fixup = @".FixupOleDb()";
             }
 
             // Retrieve the SQL String and put it in a resource
@@ -686,7 +686,6 @@ namespace csharp_dessist
             // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
             string fixup = "";
             if (connprefix == "OleDb") {
-                SourceWriter.WriteLine(@"{0}// TODO: This code uses an OleDb connection.  DESSIST must rewrite it to ADO.NET.  Check this connection!", indent);
                 SourceWriter.Help(this, "DESSIST had to rewrite an OleDb connection as an ADO.NET connection.  Please check it for correctness.");
                 connprefix = "Sql";
                 fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
@@ -839,7 +838,7 @@ namespace csharp_dessist
                         } else if (property.Attributes["name"] == "Expression") {
 
                             // Is this a lineage column?
-                            expression = FixExpression(pipeline._lineage_columns, property.ContentValue, true);
+                            expression = FixExpression(LookupSsisTypeName(outcol.Attributes["dataType"]), pipeline._lineage_columns, property.ContentValue, true);
                         } else if (property.Attributes["name"] == "FriendlyExpression") {
                             // This comment is useless - SourceWriter.WriteLine(@"{0}    // {1}", indent, property.ContentValue);
                         } else {
@@ -950,9 +949,9 @@ namespace csharp_dessist
             return sql.Contains("\nGO");
         }
 
-        public static string FixExpression(List<LineageObject> list, string expression, bool inline)
+        public static string FixExpression(string expected_type, List<LineageObject> list, string expression, bool inline)
         {
-            ExpressionData ed = new ExpressionData(list, expression);
+            ExpressionData ed = new ExpressionData(expected_type, list, expression);
             return ed.ToCSharp(inline);
         }
 
