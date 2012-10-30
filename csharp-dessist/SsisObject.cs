@@ -586,7 +586,7 @@ namespace csharp_dessist
 
             // Process all the writers
             foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}")) {
-                child.EmitPipelineWriter(this, indent);
+                child.EmitPipelineWriter_TableParam(this, indent);
                 components.Remove(child);
             }
 
@@ -673,6 +673,150 @@ namespace csharp_dessist
             }
         }
 
+        private void EmitPipelineWriter_TableParam(SsisObject pipeline, string indent)
+        {
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
+
+            // Get the connection string GUID: it's this.connections.connection
+            string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
+            string connstr = ConnectionWriter.GetConnectionStringName(conn_guid);
+            string connprefix = ConnectionWriter.GetConnectionStringPrefix(conn_guid);
+
+            // Report potential problems - can we programmatically convert an OleDb connection into an ADO.NET one?
+            string fixup = "";
+            if (connprefix == "OleDb") {
+                SourceWriter.Help(this, "DESSIST had to rewrite an OleDb connection as an ADO.NET connection.  Please check it for correctness.");
+                connprefix = "Sql";
+                fixup = @".Replace(""Provider=SQLNCLI10.1;"","""")";
+            }
+
+            // It's our problem to produce the SQL statement, because this writer uses calculated data!
+            StringBuilder sql = new StringBuilder();
+            StringBuilder colnames = new StringBuilder();
+            StringBuilder varnames = new StringBuilder();
+            StringBuilder paramsetup = new StringBuilder();
+            StringBuilder TableParamCreate = new StringBuilder();
+            StringBuilder TableSetup = new StringBuilder();
+
+            // Create the table parameter insert statement
+            string tableparamname = this.GetFunctionName() + "_WritePipe_TableParam";
+            TableParamCreate.AppendFormat("IF EXISTS (SELECT * FROM systypes where name = '{0}') DROP TYPE {0}; {1} CREATE TYPE {0} AS TABLE (", tableparamname, Environment.NewLine);
+
+            // Retrieve the names of the columns we're inserting
+            SsisObject metadata = this.GetChildByType("inputs").GetChildByType("input").GetChildByType("externalMetadataColumns");
+            SsisObject columns = this.GetChildByType("inputs").GetChildByType("input").GetChildByType("inputColumns");
+
+            // Okay, let's produce the columns we're inserting
+            foreach (SsisObject column in columns.Children) {
+                SsisObject mdcol = metadata.GetChildByTypeAndAttr("externalMetadataColumn", "id", column.Attributes["externalMetadataColumnId"]);
+
+                // Add to the table parameter create
+                TableParamCreate.AppendFormat("{0} {1} NULL, ", mdcol.Attributes["name"], LookupSsisTypeSqlName(mdcol.Attributes["dataType"], mdcol.Attributes["length"]));
+
+                // List of columns in the insert
+                colnames.AppendFormat("{0}, ", mdcol.Attributes["name"]);
+
+                // List of parameter names in the values clause
+                varnames.AppendFormat("@{0}, ", mdcol.Attributes["name"]);
+
+                // The columns in the in-memory table
+                TableSetup.AppendFormat(@"{0}component{1}.Columns.Add(""{2}"");{3}", indent, this.Attributes["id"], mdcol.Attributes["name"], Environment.NewLine);
+
+                // Find the source column in our lineage data
+                string lineageId = column.Attributes["lineageId"];
+                LineageObject lo = pipeline.GetLineageObjectById(lineageId);
+
+                // Parameter setup instructions
+                if (lo == null) {
+                    SourceWriter.Help(this, "I couldn't find lineage column " + lineageId);
+                    paramsetup.AppendFormat(@"{0}            // Unable to find column {1}{2}", indent, lineageId, Environment.NewLine);
+                } else {
+
+                    paramsetup.AppendFormat(@"{0}    dr[""{1}""] = {2};{3}", indent, mdcol.Attributes["name"], lo.ToString(), Environment.NewLine);
+                    // Is this a string?  If so, forcibly truncate it
+//                    if (mdcol.Attributes["dataType"] == "str") {
+//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.VarChar, {3}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}));
+//", indent, mdcol.Attributes["name"], lo.ToString(), mdcol.Attributes["length"]);
+//                    } else if (mdcol.Attributes["dataType"] == "wstr") {
+//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.NVarChar, {3}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}));
+//", indent, mdcol.Attributes["name"], lo.ToString(), mdcol.Attributes["length"]);
+//                    } else {
+//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2});
+//", indent, mdcol.Attributes["name"], lo.ToString());
+//                    }
+                }
+            }
+            colnames.Length -= 2;
+            varnames.Length -= 2;
+            TableParamCreate.Length -= 2;
+            TableParamCreate.Append(")");
+
+            // Insert the table parameter create statement in the project
+            string sql_tableparam_resource = ProjectWriter.AddSqlResource(GetParentDtsName() + "_WritePipe_TableParam", TableParamCreate.ToString());
+
+            // Produce a data set that we're going to process - name it after ourselves
+            SourceWriter.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
+            SourceWriter.WriteLine(TableSetup.ToString());
+
+            // Check the inputs to see what component we're using as the source
+            string component = null;
+            foreach (SsisObject incol in this.GetChildByType("inputs").GetChildByType("input").GetChildByType("inputColumns").Children) {
+                LineageObject input = pipeline.GetLineageObjectById(incol.Attributes["lineageId"]);
+                if (component == null) {
+                    component = input.DataTableName;
+                } else {
+                    if (component != input.DataTableName) {
+                        //SourceWriter.Help(this, "This SSIS pipeline is merging different component tables!");
+                        // From closer review, this doesn't look like a problem - it's most likely due to transformations occuring on output of a table
+                    }
+                }
+            }
+
+            // Now fill the table in memory
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}// Fill our table parameter in memory", indent);
+            SourceWriter.WriteLine(@"{0}for (int row = 0; row < {1}.Rows.Count; row++) {{", indent, component);
+            SourceWriter.WriteLine(@"{0}    DataRow dr = component{1}.NewRow();", indent, this.Attributes["id"]);
+            SourceWriter.WriteLine(paramsetup.ToString());
+            SourceWriter.WriteLine(@"{0}    component{1}.Rows.Add(dr);", indent, this.Attributes["id"]);
+            SourceWriter.WriteLine(@"{0}}}", indent);
+
+            // Produce the SQL statement
+            sql.AppendFormat("INSERT INTO {0} ({1}) SELECT {1} FROM @tableparam",
+                GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "OpenRowset").ContentValue,
+                colnames.ToString());
+            string sql_resource_name = ProjectWriter.AddSqlResource(GetParentDtsName() + "_WritePipe", sql.ToString());
+
+            // Write the using clause for the connection
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}    // Time to drop this all into the database", indent);
+            SourceWriter.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""]{3})) {{", indent, connstr, connprefix, fixup);
+            SourceWriter.WriteLine(@"{0}    conn.Open();", indent);
+
+            // Ensure the table parameter type has been created correctly
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}    // Ensure the table parameter type has been created successfully", indent);
+            SourceWriter.WriteLine(@"{0}    if (MustCreateTableParamFor(""{1}"")) {{", indent, sql_tableparam_resource);
+            SourceWriter.WriteLine(@"{0}        using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_tableparam_resource, connprefix);
+            SourceWriter.WriteLine(@"{0}            cmd.ExecuteNonQuery();", indent);
+            SourceWriter.WriteLine(@"{0}        }}", indent);
+            SourceWriter.WriteLine(@"{0}    }}", indent);
+
+            // Let's use our awesome table parameter style!
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}    // Insert all rows at once using fast table parameter insert", indent);
+            SourceWriter.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+            SourceWriter.WriteLine(@"{0}        SqlParameter param = new SqlParameter(""@tableparam"", SqlDbType.Structured);", indent);
+            SourceWriter.WriteLine(@"{0}        param.Value = component{1};", indent, this.Attributes["id"]);
+            SourceWriter.WriteLine(@"{0}        param.TypeName = ""{1}"";", indent, tableparamname);
+            SourceWriter.WriteLine(@"{0}        cmd.Parameters.Add(param);", indent);
+            SourceWriter.WriteLine(@"{0}        cmd.ExecuteNonQuery();", indent);
+            SourceWriter.WriteLine(@"{0}    }}", indent);
+            SourceWriter.WriteLine(@"{0}}}", indent);
+        }
+
+        /*
         private void EmitPipelineWriter(SsisObject pipeline, string indent)
         {
             SourceWriter.WriteLine();
@@ -782,6 +926,7 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}    }}", indent);
             SourceWriter.WriteLine(@"{0}}}", indent);
         }
+        */
 
         private void EmitPipelineTransform(SsisObject pipeline, string indent)
         {
@@ -1027,11 +1172,44 @@ namespace csharp_dessist
             } else if (p == "r4" || p == "r8") {
                 return "double";
 
-            // Currency
-            } else if (p == "cy" || p == "numeric") { 
+                // Currency
+            } else if (p == "cy" || p == "numeric") {
                 return "System.Decimal";
             } else {
                 SourceWriter.Help(null, "I don't yet understand the SSIS type named " + p);
+            }
+            return null;
+        }
+
+        public static string LookupSsisTypeSqlName(string ssistype, string length)
+        {
+            // Skip Data Transformation Underscore
+            if (ssistype.StartsWith("DT_")) ssistype = ssistype.Substring(3);
+            ssistype = ssistype.ToLower();
+
+            // Okay, let's check real stuff
+            if (ssistype == "i2") {
+                return "smallint";
+            } else if (ssistype == "i4") {
+                return "int";
+            } else if (ssistype == "i8") {
+                return "bigint";
+            } else if (ssistype == "str") {
+                return String.Format("varchar({0})", length == null ? "max" : length);
+            } else if (ssistype == "wstr") {
+                return String.Format("nvarchar({0})", length == null ? "max" : length);
+            } else if (ssistype == "dbtimestamp") {
+                return "datetime";
+            } else if (ssistype == "r4") {
+                return "real";
+            } else if (ssistype == "r8") {
+                return "float";
+
+            // Currency
+            } else if (ssistype == "cy" || ssistype == "numeric") {
+                return "decimal";
+            } else {
+                SourceWriter.Help(null, "I don't yet understand the SSIS type named " + ssistype);
             }
             return null;
         }
