@@ -1,4 +1,10 @@
-﻿using System;
+﻿/*
+ * 2012 Ted Spence, http://tedspence.com
+ * License: http://www.apache.org/licenses/LICENSE-2.0 
+ * Home page: https://code.google.com/p/csharp-command-line-wrapper
+ * 
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -67,7 +73,7 @@ namespace csharp_dessist
         }
 
         #endregion
-        private List<VariableData> _scope_variables = new List<VariableData>();
+        private List<ProgramVariable> _scope_variables = new List<ProgramVariable>();
 
         #region Shortcuts
 
@@ -119,9 +125,9 @@ namespace csharp_dessist
         /// <param name="indent_depth"></param>
         /// <param name="as_global"></param>
         /// <param name="sw"></param>
-        internal VariableData EmitVariable(string indent, bool as_global)
+        internal ProgramVariable EmitVariable(string indent, bool as_global)
         {
-            VariableData vd = new VariableData(this, as_global);
+            ProgramVariable vd = new ProgramVariable(this, as_global);
 
             // Do we add comments for these variables?
             string privilege = "";
@@ -146,7 +152,7 @@ namespace csharp_dessist
             _var_dict[vd.VariableName] = vd;
             return vd;
         }
-        protected static Dictionary<string, VariableData> _var_dict = new Dictionary<string, VariableData>();
+        protected static Dictionary<string, ProgramVariable> _var_dict = new Dictionary<string, ProgramVariable>();
 
         /// <summary>
         /// Produce this variable to the current stream
@@ -154,7 +160,7 @@ namespace csharp_dessist
         /// <param name="indent_depth"></param>
         /// <param name="as_global"></param>
         /// <param name="sw"></param>
-        internal void EmitFunction(string indent, List<VariableData> scope_variables)
+        internal void EmitFunction(string indent, List<ProgramVariable> scope_variables)
         {
             _scope_variables.AddRange(scope_variables);
 
@@ -352,7 +358,7 @@ namespace csharp_dessist
             string varname = FixVariableName(this.Properties["VariableName"]);
 
             // Look up the variable data
-            VariableData vd = _var_dict[varname];
+            ProgramVariable vd = _var_dict[varname];
 
             // Produce a line
             SourceWriter.WriteLine(String.Format(@"{0}{1} = ({3})iter.ItemArray[{2}];", indent, varname, this.Properties["ValueIndex"], vd.CSharpType));
@@ -503,7 +509,7 @@ namespace csharp_dessist
             if (binding != null) {
                 string varname = binding.Attributes["SQLTask:DtsVariableName"];
                 string fixedname = FixVariableName(varname);
-                VariableData vd = _var_dict[fixedname];
+                ProgramVariable vd = _var_dict[fixedname];
 
                 // Emit our binding
                 SourceWriter.WriteLine(@"{0}", indent);
@@ -586,7 +592,11 @@ namespace csharp_dessist
 
             // Process all the writers
             foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}")) {
-                child.EmitPipelineWriter_TableParam(this, indent);
+                if (Program.gSqlMode == SqlCompatibilityType.SQL2008) {
+                    child.EmitPipelineWriter_TableParam(this, indent);
+                } else {
+                    child.EmitPipelineWriter(this, indent);
+                }
                 components.Remove(child);
             }
 
@@ -621,14 +631,15 @@ namespace csharp_dessist
             List<SsisObject> transforms = this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children;
             List<string> colnames = new List<string>();
             foreach (SsisObject outcol in transforms) {
-                LineageObject lo = new LineageObject(outcol.Attributes["lineageId"], "component" + this.Attributes["id"], outcol.Attributes["name"]);
+                ColumnVariable cv = new ColumnVariable(outcol);
+                LineageObject lo = new LineageObject(cv.LineageID, "component" + this.Attributes["id"], cv.Name);
                 i++;
                 pipeline._lineage_columns.Add(lo);
 
                 // Print out this column
-                SourceWriter.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], outcol.Attributes["name"], LookupSsisTypeName(outcol.Attributes["dataType"]));
+                SourceWriter.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], cv.Name, cv.CsharpType());
                 DataTable dt = new DataTable();
-                colnames.Add(outcol.Attributes["name"]);
+                colnames.Add(cv.Name);
             }
 
             // Loop through all the inputs and process them!
@@ -709,19 +720,19 @@ namespace csharp_dessist
 
             // Okay, let's produce the columns we're inserting
             foreach (SsisObject column in columns.Children) {
-                SsisObject mdcol = metadata.GetChildByTypeAndAttr("externalMetadataColumn", "id", column.Attributes["externalMetadataColumnId"]);
+                ColumnVariable cv = new ColumnVariable(metadata.GetChildByTypeAndAttr("externalMetadataColumn", "id", column.Attributes["externalMetadataColumnId"]));
 
                 // Add to the table parameter create
-                TableParamCreate.AppendFormat("{0} {1} NULL, ", mdcol.Attributes["name"], LookupSsisTypeSqlName(mdcol.Attributes["dataType"], mdcol.Attributes["length"]));
+                TableParamCreate.AppendFormat("{0} {1} NULL, ", cv.Name, cv.SqlDbType());
 
                 // List of columns in the insert
-                colnames.AppendFormat("{0}, ", mdcol.Attributes["name"]);
+                colnames.AppendFormat("{0}, ", cv.Name);
 
                 // List of parameter names in the values clause
-                varnames.AppendFormat("@{0}, ", mdcol.Attributes["name"]);
+                varnames.AppendFormat("@{0}, ", cv.Name);
 
                 // The columns in the in-memory table
-                TableSetup.AppendFormat(@"{0}component{1}.Columns.Add(""{2}"");{3}", indent, this.Attributes["id"], mdcol.Attributes["name"], Environment.NewLine);
+                TableSetup.AppendFormat(@"{0}component{1}.Columns.Add(""{2}"");{3}", indent, this.Attributes["id"], cv.Name, Environment.NewLine);
 
                 // Find the source column in our lineage data
                 string lineageId = column.Attributes["lineageId"];
@@ -732,19 +743,7 @@ namespace csharp_dessist
                     SourceWriter.Help(this, "I couldn't find lineage column " + lineageId);
                     paramsetup.AppendFormat(@"{0}            // Unable to find column {1}{2}", indent, lineageId, Environment.NewLine);
                 } else {
-
-                    paramsetup.AppendFormat(@"{0}    dr[""{1}""] = {2};{3}", indent, mdcol.Attributes["name"], lo.ToString(), Environment.NewLine);
-                    // Is this a string?  If so, forcibly truncate it
-//                    if (mdcol.Attributes["dataType"] == "str") {
-//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.VarChar, {3}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}));
-//", indent, mdcol.Attributes["name"], lo.ToString(), mdcol.Attributes["length"]);
-//                    } else if (mdcol.Attributes["dataType"] == "wstr") {
-//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.Add(new SqlParameter(""@{1}"", SqlDbType.NVarChar, {3}, ParameterDirection.Input, false, 0, 0, null, DataRowVersion.Current, {2}));
-//", indent, mdcol.Attributes["name"], lo.ToString(), mdcol.Attributes["length"]);
-//                    } else {
-//                        paramsetup.AppendFormat(@"{0}            cmd.Parameters.AddWithValue(""@{1}"",{2});
-//", indent, mdcol.Attributes["name"], lo.ToString());
-//                    }
+                    paramsetup.AppendFormat(@"{0}    dr[""{1}""] = {2};{3}", indent, cv.Name, lo.ToString(), Environment.NewLine);
                 }
             }
             colnames.Length -= 2;
@@ -816,7 +815,6 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}}}", indent);
         }
 
-        /*
         private void EmitPipelineWriter(SsisObject pipeline, string indent)
         {
             SourceWriter.WriteLine();
@@ -926,26 +924,11 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}    }}", indent);
             SourceWriter.WriteLine(@"{0}}}", indent);
         }
-        */
 
         private void EmitPipelineTransform(SsisObject pipeline, string indent)
         {
-            //SourceWriter.WriteLine();
-            //SourceWriter.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
-
-            // Create a new datatable
-            //SourceWriter.WriteLine(@"{0}DataTable component{1} = new DataTable();", indent, this.Attributes["id"]);
-
             // Add the columns we're generating
             List<SsisObject> transforms = this.GetChildByType("outputs").GetChildByTypeAndAttr("output", "isErrorOut", "false").GetChildByType("outputColumns").Children;
-            //foreach (SsisObject outcol in transforms) {
-            //    LineageObject lo = new LineageObject(outcol.Attributes["lineageId"], "component" + this.Attributes["id"], outcol.Attributes["name"]);
-            //    pipeline._lineage_columns.Add(lo);
-
-            //    // Print out this column
-            //    //SourceWriter.WriteLine(@"{0}component{1}.Columns.Add(new DataColumn(""{2}"", typeof({3})));", indent, this.Attributes["id"], outcol.Attributes["name"], LookupSsisTypeName(outcol.Attributes["dataType"]));
-            //    DataTable dt = new DataTable();
-            //}
 
             // Check the inputs to see what component we're using as the source
             string component = "component1";
@@ -963,12 +946,9 @@ namespace csharp_dessist
                 }
             }
 
-            // Populate these columns
-            //SourceWriter.WriteLine(@"{0}for (int row = 0; row < {1}.Rows.Count; row++) {{", indent, component);
-            //SourceWriter.WriteLine(@"{0}    DataRow dr = component{1}.NewRow();", indent, this.Attributes["id"]);
-
             // Let's see if we can generate some code to do these conversions!
             foreach (SsisObject outcol in transforms) {
+                ColumnVariable cv = new ColumnVariable(outcol);
                 LineageObject source_lineage = null;
                 string expression = null;
 
@@ -977,13 +957,13 @@ namespace csharp_dessist
                     foreach (SsisObject property in outcol.GetChildByType("properties").Children) {
                         if (property.Attributes["name"] == "SourceInputColumnLineageID") {
                             source_lineage = pipeline.GetLineageObjectById(property.ContentValue);
-                            expression = String.Format(@"Convert.ChangeType({1}.Rows[row][""{2}""], typeof({0}));", LookupSsisTypeName(outcol.Attributes["dataType"]), source_lineage.DataTableName, source_lineage.FieldName);
+                            expression = String.Format(@"Convert.ChangeType({1}.Rows[row][""{2}""], typeof({0}));", cv.CsharpType(), source_lineage.DataTableName, source_lineage.FieldName);
                         } else if (property.Attributes["name"] == "FastParse") {
                             // Don't need to do anything here
                         } else if (property.Attributes["name"] == "Expression") {
 
                             // Is this a lineage column?
-                            expression = FixExpression(LookupSsisTypeName(outcol.Attributes["dataType"]), pipeline._lineage_columns, property.ContentValue, true);
+                            expression = FixExpression(cv.CsharpType(), pipeline._lineage_columns, property.ContentValue, true);
                         } else if (property.Attributes["name"] == "FriendlyExpression") {
                             // This comment is useless - SourceWriter.WriteLine(@"{0}    // {1}", indent, property.ContentValue);
                         } else {
@@ -1004,10 +984,6 @@ namespace csharp_dessist
                     SourceWriter.Help(this, "I'm trying to do a transform, but I don't have any properties to use.");
                 }
             }
-
-            // Write the end of this code block
-            //SourceWriter.WriteLine(@"{0}    component{1}.Rows.Add(dr);", indent, this.Attributes["id"]);
-            //SourceWriter.WriteLine(@"{0}}}", indent);
         }
 
         private void EmitPipelineReader(SsisObject pipeline, string indent)
@@ -1120,11 +1096,11 @@ namespace csharp_dessist
             // Do we have any variables to pass?
             StringBuilder p = new StringBuilder();
             if (include_type) {
-                foreach (VariableData vd in _scope_variables) {
+                foreach (ProgramVariable vd in _scope_variables) {
                     p.AppendFormat("ref {0} {1}, ", vd.CSharpType, vd.VariableName);
                 }
             } else {
-                foreach (VariableData vd in _scope_variables) {
+                foreach (ProgramVariable vd in _scope_variables) {
                     p.AppendFormat("ref {0}, ", vd.VariableName);
                 }
             }
@@ -1150,68 +1126,6 @@ namespace csharp_dessist
                 _func_names.Add(_FunctionName);
             }
             return _FunctionName;
-        }
-
-        public static string LookupSsisTypeName(string p)
-        {
-            // Skip Data Transformation Underscore
-            if (p.StartsWith("DT_")) p = p.Substring(3);
-            p = p.ToLower();
-
-            // Okay, let's check real stuff
-            if (p == "i2") {
-                return "System.Int16";
-            } else if (p == "i4") {
-                return "System.Int32";
-            } else if (p == "i8") {
-                return "System.Int64";
-            } else if (p == "str" || p == "wstr") {
-                return "System.String";
-            } else if (p == "dbtimestamp") {
-                return "System.DateTime";
-            } else if (p == "r4" || p == "r8") {
-                return "double";
-
-                // Currency
-            } else if (p == "cy" || p == "numeric") {
-                return "System.Decimal";
-            } else {
-                SourceWriter.Help(null, "I don't yet understand the SSIS type named " + p);
-            }
-            return null;
-        }
-
-        public static string LookupSsisTypeSqlName(string ssistype, string length)
-        {
-            // Skip Data Transformation Underscore
-            if (ssistype.StartsWith("DT_")) ssistype = ssistype.Substring(3);
-            ssistype = ssistype.ToLower();
-
-            // Okay, let's check real stuff
-            if (ssistype == "i2") {
-                return "smallint";
-            } else if (ssistype == "i4") {
-                return "int";
-            } else if (ssistype == "i8") {
-                return "bigint";
-            } else if (ssistype == "str") {
-                return String.Format("varchar({0})", length == null ? "max" : length);
-            } else if (ssistype == "wstr") {
-                return String.Format("nvarchar({0})", length == null ? "max" : length);
-            } else if (ssistype == "dbtimestamp") {
-                return "datetime";
-            } else if (ssistype == "r4") {
-                return "real";
-            } else if (ssistype == "r8") {
-                return "float";
-
-            // Currency
-            } else if (ssistype == "cy" || ssistype == "numeric") {
-                return "decimal";
-            } else {
-                SourceWriter.Help(null, "I don't yet understand the SSIS type named " + ssistype);
-            }
-            return null;
         }
 
         private static Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();

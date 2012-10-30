@@ -1,4 +1,10 @@
-﻿using System;
+﻿/*
+ * 2012 Ted Spence, http://tedspence.com
+ * License: http://www.apache.org/licenses/LICENSE-2.0 
+ * Home page: https://code.google.com/p/csharp-command-line-wrapper
+ * 
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +14,12 @@ using System.Text.RegularExpressions;
 
 namespace csharp_dessist
 {
+    public enum SqlCompatibilityType { SQL2008, SQL2005 };
+
     public class Program
     {
+        public static SqlCompatibilityType gSqlMode = SqlCompatibilityType.SQL2008;
+
         /// <summary>
         /// Use the friendly console library for a command line interface
         /// </summary>
@@ -24,11 +34,12 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="ssis_filename"></param>
         /// <param name="output_folder"></param>
-        public static void ParseSsisPackage(string ssis_filename, string output_folder)
+        public static void ParseSsisPackage(string ssis_filename, string output_folder, SqlCompatibilityType SqlMode = SqlCompatibilityType.SQL2008)
         {
             XmlReaderSettings set = new XmlReaderSettings();
             set.IgnoreWhitespace = true;
             SsisObject o = new SsisObject();
+            gSqlMode = SqlMode;
 
             // TODO: Should read the dtproj file instead of the dtsx file, then produce multiple classes, one for each .DTSX file
 
@@ -108,7 +119,11 @@ namespace ");
     public class Program
     {
         public static RecursiveTimeLog timer = new RecursiveTimeLog();
+");
 
+                // Support for table params
+                if (gSqlMode == SqlCompatibilityType.SQL2008) {
+                SourceWriter.Write(@"
         public static List<string> CreatedTableParams = new List<string>();
         public static bool MustCreateTableParamFor(string s)
         {
@@ -118,6 +133,10 @@ namespace ");
             }
             return result;
         }
+");
+                }
+
+                SourceWriter.Write(@"
 
 #region Main()
         /// <summary>
@@ -155,7 +174,7 @@ namespace ");
 ");
                 // Write each executable out as a function
                 foreach (SsisObject v in functions) {
-                    v.EmitFunction("        ", new List<VariableData>());
+                    v.EmitFunction("        ", new List<ProgramVariable>());
                 }
 
                 // Write the footer
