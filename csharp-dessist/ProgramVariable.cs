@@ -1,11 +1,17 @@
-﻿using System;
+﻿/*
+ * 2012 Ted Spence, http://tedspence.com
+ * License: http://www.apache.org/licenses/LICENSE-2.0 
+ * Home page: https://code.google.com/p/csharp-command-line-wrapper
+ * 
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
 namespace csharp_dessist
 {
-    public class VariableData
+    public class ProgramVariable
     {
         public string DtsType;
         public string CSharpType;
@@ -15,7 +21,7 @@ namespace csharp_dessist
         public string Namespace;
         public bool IsGlobal;
 
-        public VariableData(SsisObject o, bool as_global)
+        public ProgramVariable(SsisObject o, bool as_global)
         {
             // Figure out what type of a variable we are
             DtsType = o.GetChildByType("DTS:VariableValue").Attributes["DTS:DataType"];

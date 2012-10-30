@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ColumnVariable.cs" />
     <Compile Include="CommandWrapLib.cs" />
     <Compile Include="ConnectionWriter.cs" />
     <Compile Include="ExpressionData.cs" />
@@ -58,7 +59,7 @@
       <DependentUpon>Resource1.resx</DependentUpon>
     </Compile>
     <Compile Include="SsisObject.cs" />
-    <Compile Include="VariableData.cs" />
+    <Compile Include="ProgramVariable.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resource1.resx">

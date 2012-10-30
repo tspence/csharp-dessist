@@ -1,4 +1,10 @@
-﻿using System;
+﻿/*
+ * 2012 Ted Spence, http://tedspence.com
+ * License: http://www.apache.org/licenses/LICENSE-2.0 
+ * Home page: https://code.google.com/p/csharp-command-line-wrapper
+ * 
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -88,7 +94,7 @@ namespace csharp_dessist
             Match m = CONVERT_REGEX.Match(s);
             if (m.Success) {
                 s = s.Substring(m.Index + m.Length);
-                TypeRef = SsisObject.LookupSsisTypeName(m.Groups[1].Value);
+                TypeRef = ColumnVariable.LookupSsisTypeName(m.Groups[1].Value);
                 TokenToConvert = parent.ConsumeToken(ref s);
             } else {
                 SourceWriter.Help(null, "Unable to parse conversion token " + s);
