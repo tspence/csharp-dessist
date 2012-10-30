@@ -109,6 +109,15 @@ namespace ");
     {
         public static RecursiveTimeLog timer = new RecursiveTimeLog();
 
+        public static List<string> CreatedTableParams = new List<string>();
+        public static bool MustCreateTableParamFor(string s)
+        {
+            bool result = !CreatedTableParams.Contains(s);
+            if (result) {
+                CreatedTableParams.Add(s);
+            }
+            return result;
+        }
 
 #region Main()
         /// <summary>
