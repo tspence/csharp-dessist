@@ -47,17 +47,17 @@
     <Compile Include="CommandWrapLib.cs" />
     <Compile Include="ConnectionWriter.cs" />
     <Compile Include="ExpressionData.cs" />
+    <Compile Include="Resource1.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resource1.resx</DependentUpon>
+    </Compile>
     <Compile Include="SourceWriter.cs" />
     <Compile Include="LineageObject.cs" />
     <Compile Include="PrecedenceData.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProjectWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resource1.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resource1.resx</DependentUpon>
-    </Compile>
     <Compile Include="SsisObject.cs" />
     <Compile Include="ProgramVariable.cs" />
   </ItemGroup>
@@ -104,6 +104,10 @@
     <Content Include="Microsoft.SqlServer.Smo.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\SqlSmoUsingTemplate.txt" />
+    <None Include="Resources\TableParameterStaticTemplate.txt" />
+    <None Include="Resources\ProgramFooterTemplate.txt" />
+    <None Include="Resources\ProgramHeaderTemplate.txt" />
     <None Include="Resources\RecursiveTimeLog.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

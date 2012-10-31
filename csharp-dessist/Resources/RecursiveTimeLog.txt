@@ -82,9 +82,9 @@ namespace PopulateAccum
         public string GetTimings()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("Function: Time (Calls)\r\n");
+            sb.Append("Function\tTime\tCalls\r\n");
             foreach (KeyValuePair<string, FunctionData> kvp in _time_dict) {
-                sb.AppendFormat("{0}: {1} ({2})\r\n", kvp.Key, kvp.Value.CumulativeTimeSpent, kvp.Value.TimesCalled);
+                sb.AppendFormat("{0}\t{1}\t{2}\r\n", kvp.Key, kvp.Value.CumulativeTimeSpent, kvp.Value.TimesCalled);
             }
             return sb.ToString();
         }

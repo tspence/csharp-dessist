@@ -133,6 +133,12 @@
   <data name="IndividualResourceSnippet" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\IndividualResourceSnippet.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
+  <data name="ProgramFooterTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\ProgramFooterTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="ProgramHeaderTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\ProgramHeaderTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
   <data name="ProjectTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\ProjectTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
@@ -147,5 +153,11 @@
   </data>
   <data name="SolutionTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\SolutionTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="SqlSmoUsingTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\SqlSmoUsingTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+  <data name="TableParameterStaticTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\TableParameterStaticTemplate.txt;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
   </data>
 </root>

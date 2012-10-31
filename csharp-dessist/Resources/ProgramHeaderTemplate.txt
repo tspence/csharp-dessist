@@ -1,0 +1,51 @@
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.OleDb;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Net.Mail;
+using System.Text;
+using System.Xml;
+using System.IO;
+@@USINGSQLSMO@@
+
+namespace @@NAMESPACE@@
+{
+    public static class Extensions
+    {
+        /// <summary>
+        /// Converts a connection string in OLEDB format to one in ADO.NET format
+        /// </summary>
+        /// <param name="s">The connection string to change</param>
+        public static string FixupOleDb(this string s)
+        {
+            int p = s.IndexOf("Provider=", StringComparison.CurrentCultureIgnoreCase);
+            if (p >= 0) {
+                int p2 = s.IndexOf(';', p + 1);
+                return s.Substring(0, p) + s.Substring(p2 + 1);
+            }
+            return s;
+        }
+    }
+
+    public class Program
+    {
+        public static RecursiveTimeLog timer = new RecursiveTimeLog();
+
+@@TABLEPARAMSTATIC@@
+
+#region Main()
+        /// <summary>
+        /// Main Function
+        /// </summary>
+        /// <param name="args"></param>
+        static void Main(string[] args)
+        {
+			@@MAINFUNCTION@@();
+            Console.WriteLine(timer.GetTimings());
+        }
+#endregion
+
+
