@@ -1,0 +1,12 @@
+
+#region Table Parameter support (requires SQL Server 2008, but enables faster data insert)
+        public static List<string> CreatedTableParams = new List<string>();
+        public static bool MustCreateTableParamFor(string s)
+        {
+            bool result = !CreatedTableParams.Contains(s);
+            if (result) {
+                CreatedTableParams.Add(s);
+            }
+            return result;
+        }
+#endregion

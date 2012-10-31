@@ -447,7 +447,15 @@ namespace csharp_dessist
             }
 
             // Retrieve the SQL String and put it in a resource
-            string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), Attributes["SQLTask:SqlStatementSource"]);
+            string raw_sql = Attributes["SQLTask:SqlStatementSource"];
+
+            // Do we need to forcibly convert this code to regular SQL?  This is dangerous, but might be okay if we know it's safe!
+            if (is_sqlcmd && !ProjectWriter.UseSqlServerManagementObjects) {
+                raw_sql = raw_sql.Replace("\nGO", "\n;");
+                SourceWriter.Help(this, "Forcibly converted the SQL server script '{0}' (containing multiple statements) to raw SQL (single statement).  Check that this is safe!");
+                is_sqlcmd = false;
+            }
+            string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), raw_sql);
 
             // Are we going to return anything?  Prepare a variable to hold it
             if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {

@@ -34,12 +34,15 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="ssis_filename"></param>
         /// <param name="output_folder"></param>
-        public static void ParseSsisPackage(string ssis_filename, string output_folder, SqlCompatibilityType SqlMode = SqlCompatibilityType.SQL2008)
+        public static void ParseSsisPackage(string ssis_filename, string output_folder, SqlCompatibilityType SqlMode = SqlCompatibilityType.SQL2008, bool UseSqlSMO = true)
         {
             XmlReaderSettings set = new XmlReaderSettings();
             set.IgnoreWhitespace = true;
             SsisObject o = new SsisObject();
             gSqlMode = SqlMode;
+
+            // Set the appropriate flag for SMO usage
+            ProjectWriter.UseSqlServerManagementObjects = UseSqlSMO;
 
             // TODO: Should read the dtproj file instead of the dtsx file, then produce multiple classes, one for each .DTSX file
 
@@ -84,104 +87,44 @@ namespace csharp_dessist
         {
             using (SourceWriter.SourceFileStream = new StreamWriter(filename, false, Encoding.UTF8)) {
 
-                // Write the header
-                SourceWriter.Write(@"using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Data.OleDb;
-using System.Data.SqlClient;
-using System.Linq;
-using System.Net.Mail;
-using System.Text;
-using System.Xml;
-using System.IO;
-using Microsoft.SqlServer.Management.Common;
-using Microsoft.SqlServer.Management.Smo;
+                string smo_using = "";
+                string tableparamstatic = "";
 
-namespace ");
-                SourceWriter.Write(appname);
-                SourceWriter.Write(@"
-{
-    public static class Extensions
-    {
-        public static string FixupOleDb(this string s)
-        {
-            int p = s.IndexOf(""Provider="", StringComparison.CurrentCultureIgnoreCase);
-            if (p >= 0) {
-                int p2 = s.IndexOf(';', p + 1);
-                return s.Substring(0, p) + s.Substring(p2 + 1);
-            }
-            return s;
-        }
-    }
-
-    public class Program
-    {
-        public static RecursiveTimeLog timer = new RecursiveTimeLog();
-");
-
-                // Support for table params
-                if (gSqlMode == SqlCompatibilityType.SQL2008) {
-                SourceWriter.Write(@"
-        public static List<string> CreatedTableParams = new List<string>();
-        public static bool MustCreateTableParamFor(string s)
-        {
-            bool result = !CreatedTableParams.Contains(s);
-            if (result) {
-                CreatedTableParams.Add(s);
-            }
-            return result;
-        }
-");
+                // Are we using SMO mode?
+                if (ProjectWriter.UseSqlServerManagementObjects) {
+                    smo_using = Resource1.SqlSmoUsingTemplate;
                 }
 
-                SourceWriter.Write(@"
+                // Are we using SQL 2008 mode?
+                if (gSqlMode == SqlCompatibilityType.SQL2008) {
+                    tableparamstatic = Resource1.TableParameterStaticTemplate;
+                }
 
-#region Main()
-        /// <summary>
-        /// Main Function
-        /// </summary>
-        /// <param name=""args""></param>
-        static void Main(string[] args)
-        {
-            ");
-
-                // Emit a function call to the first function in the application
-                SourceWriter.Write(functions.FirstOrDefault().GetFunctionName());
-                SourceWriter.Write(@"();
-            Console.WriteLine(timer.GetTimings());
-        }
-#endregion
-
-
-#region Global Variables
-        /// <summary>
-        /// Global Variables
-        /// </summary>
-");
+                // Write the header in one fell swoop
+                SourceWriter.Write(
+                    Resource1.ProgramHeaderTemplate
+                    .Replace("@@USINGSQLSMO@@", smo_using)
+                    .Replace("@@NAMESPACE@@", appname)
+                    .Replace("@@TABLEPARAMSTATIC@@", tableparamstatic)
+                    .Replace("@@MAINFUNCTION@@", functions.FirstOrDefault().GetFunctionName())
+                    );
 
                 // Write each variable out as if it's a global
+                SourceWriter.WriteLine(@"#region Global Variables");
                 foreach (SsisObject v in variables) {
                     v.EmitVariable("        ", true);
                 }
+                SourceWriter.WriteLine(@"#endregion");
+                SourceWriter.WriteLine();
+                SourceWriter.WriteLine();
 
-                SourceWriter.Write(@"
-#endregion
-
-
-#region SSIS Extracted Functions
-");
+                
                 // Write each executable out as a function
+                SourceWriter.WriteLine(@"#region SSIS Code");
                 foreach (SsisObject v in functions) {
                     v.EmitFunction("        ", new List<ProgramVariable>());
                 }
-
-                // Write the footer
-                SourceWriter.WriteLine(@"
-#endregion
-    }
-}");
+                SourceWriter.WriteLine(Resource1.ProgramFooterTemplate);
             }
         }
         #endregion

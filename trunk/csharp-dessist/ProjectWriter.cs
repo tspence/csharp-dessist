@@ -20,6 +20,8 @@ namespace csharp_dessist
         public static List<string> AllFiles = new List<string>();
         public static List<string> DllFiles = new List<string>();
 
+        public static bool UseSqlServerManagementObjects = false;
+
         public static void EmitScriptProject(SsisObject o, string indent)
         {
             // Find the script object child
@@ -135,6 +137,25 @@ namespace csharp_dessist
             // Spit out the resource file
             File.WriteAllText(Path.Combine(folder, "Resource1.resx"), Resource1.ResourceTemplate.Replace("@@RESOURCES@@", resfile.ToString()));
 
+            // Copy the Microsoft SQL Server objects!
+            if (UseSqlServerManagementObjects) {
+                File.Copy("Microsoft.SqlServer.ConnectionInfo.dll", Path.Combine(folder, "Microsoft.SqlServer.ConnectionInfo.dll"), true);
+                File.Copy("Microsoft.SqlServer.Management.Sdk.Sfc.dll", Path.Combine(folder, "Microsoft.SqlServer.Management.Sdk.Sfc.dll"), true);
+                File.Copy("Microsoft.SqlServer.Smo.dll", Path.Combine(folder, "Microsoft.SqlServer.Smo.dll"), true);
+                DllReferences.Append(@"<Reference Include=""Microsoft.SqlServer.ConnectionInfo, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL"">
+                      <SpecificVersion>False</SpecificVersion>
+                      <HintPath>Microsoft.SqlServer.ConnectionInfo.dll</HintPath>
+                    </Reference>
+                    <Reference Include=""Microsoft.SqlServer.Management.Sdk.Sfc, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL"">
+                      <SpecificVersion>False</SpecificVersion>
+                      <HintPath>Microsoft.SqlServer.Management.Sdk.Sfc.dll</HintPath>
+                    </Reference>
+                    <Reference Include=""Microsoft.SqlServer.Smo, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL"">
+                      <SpecificVersion>False</SpecificVersion>
+                      <HintPath>Microsoft.SqlServer.Smo.dll</HintPath>
+                    </Reference>");
+            }
+
             // Resource needs a designer file too!
             string designer =
                 Resource1.ResourceDesignerTemplate
@@ -151,11 +172,6 @@ namespace csharp_dessist
                 .Replace("@@APPNAME@@", appname)
                 .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper());
             File.WriteAllText(Path.Combine(folder, appname + ".csproj"), project);
-
-            // Copy the Microsoft SQL Server objects!
-            File.Copy("Microsoft.SqlServer.ConnectionInfo.dll", Path.Combine(folder, "Microsoft.SqlServer.ConnectionInfo.dll"), true);
-            File.Copy("Microsoft.SqlServer.Management.Sdk.Sfc.dll", Path.Combine(folder, "Microsoft.SqlServer.Management.Sdk.Sfc.dll"), true);
-            File.Copy("Microsoft.SqlServer.Smo.dll", Path.Combine(folder, "Microsoft.SqlServer.Smo.dll"), true);
 
             // Spit out the solution file
             Guid sln_guid = Guid.NewGuid();

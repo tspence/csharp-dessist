@@ -130,6 +130,47 @@ namespace csharp_dessist {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to #endregion
+        ///    }
+        ///}
+        ///.
+        /// </summary>
+        internal static string ProgramFooterTemplate {
+            get {
+                return ResourceManager.GetString("ProgramFooterTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to using System;
+        ///using System.Collections.Generic;
+        ///using System.Configuration;
+        ///using System.Data;
+        ///using System.Data.OleDb;
+        ///using System.Data.SqlClient;
+        ///using System.Linq;
+        ///using System.Net.Mail;
+        ///using System.Text;
+        ///using System.Xml;
+        ///using System.IO;
+        ///@@USINGSQLSMO@@
+        ///
+        ///namespace @@NAMESPACE@@
+        ///{
+        ///    public static class Extensions
+        ///    {
+        ///        public static string FixupOleDb(this string s)
+        ///        {
+        ///            int p = s.IndexOf(&quot;&quot;Provider=&quot;&quot;, StringComparison.CurrentCultureIgnoreCase);
+        ///          [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string ProgramHeaderTemplate {
+            get {
+                return ResourceManager.GetString("ProgramHeaderTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to &lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;
         ///&lt;Project ToolsVersion=&quot;4.0&quot; DefaultTargets=&quot;Build&quot; xmlns=&quot;http://schemas.microsoft.com/developer/msbuild/2003&quot;&gt;
         ///  &lt;PropertyGroup&gt;
@@ -157,7 +198,7 @@ namespace csharp_dessist {
         ///{
         ///    public class RecursiveTimeLog
         ///    {
-        ///        public class FunctionTimingData
+        ///        public class StackTiming
         ///        {
         ///            public string FunctionName;
         ///            public TimeSpan CumulativeTimeSpent;
@@ -166,7 +207,8 @@ namespace csharp_dessist {
         ///            public void ClockOut()
         ///            {
         ///                TimeSpan ts = DateTime.Now - EntryTime;
-        ///                CumulativeTimeSpent += ts; [rest of string was truncated]&quot;;.
+        ///                CumulativeTimeSpent += ts;
+        ///      [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string RecursiveTimeLog {
             get {
@@ -242,6 +284,37 @@ namespace csharp_dessist {
         internal static string SolutionTemplate {
             get {
                 return ResourceManager.GetString("SolutionTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to using using Microsoft.SqlServer.Management.Common;
+        ///using Microsoft.SqlServer.Management.Smo;.
+        /// </summary>
+        internal static string SqlSmoUsingTemplate {
+            get {
+                return ResourceManager.GetString("SqlSmoUsingTemplate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 
+        ///#region Table Parameter support (requires SQL Server 2008, but enables faster data insert)
+        ///        public static List&lt;string&gt; CreatedTableParams = new List&lt;string&gt;();
+        ///        public static bool MustCreateTableParamFor(string s)
+        ///        {
+        ///            bool result = !CreatedTableParams.Contains(s);
+        ///            if (result) {
+        ///                CreatedTableParams.Add(s);
+        ///            }
+        ///            return result;
+        ///        }
+        ///#endregion
+        ///.
+        /// </summary>
+        internal static string TableParameterStaticTemplate {
+            get {
+                return ResourceManager.GetString("TableParameterStaticTemplate", resourceCulture);
             }
         }
     }
