@@ -21,19 +21,11 @@ namespace csharp_dessist
         public static SqlCompatibilityType gSqlMode = SqlCompatibilityType.SQL2008;
 
         /// <summary>
-        /// Use the friendly console library for a command line interface
-        /// </summary>
-        /// <param name="args"></param>
-        static void Main(string[] args)
-        {
-            CommandWrapLib.ConsoleWrapper(null, "Program", "ParseSsisPackage", args);
-        }
-
-        /// <summary>
         /// Attempt to read an SSIS package and produce a meaningful C# program
         /// </summary>
         /// <param name="ssis_filename"></param>
         /// <param name="output_folder"></param>
+        [Wrap(Description="CSHARP-DESSIST - Read in data from an SSIS package and produce an equivalent C# program using .NET 4.0.")]
         public static void ParseSsisPackage(string ssis_filename, string output_folder, SqlCompatibilityType SqlMode = SqlCompatibilityType.SQL2008, bool UseSqlSMO = true)
         {
             XmlReaderSettings set = new XmlReaderSettings();
