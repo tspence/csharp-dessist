@@ -457,10 +457,13 @@ namespace csharp_dessist
             }
             string sql_attr_name = ProjectWriter.AddSqlResource(GetParentDtsName(), raw_sql);
 
+            // Do we have a result binding?
+            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
+
             // Are we going to return anything?  Prepare a variable to hold it
             if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
                 SourceWriter.WriteLine(@"{0}object result = null;", indent, connstr);
-            } else {
+            } else if (binding != null) {
                 SourceWriter.WriteLine(@"{0}DataTable result = null;", indent, connstr);
             }
             SourceWriter.WriteLine(@"{0}Console.WriteLine(""{{0}} SQL: {1}"", DateTime.Now);", indent, sql_attr_name);
@@ -479,9 +482,7 @@ namespace csharp_dessist
                 SourceWriter.WriteLine(@"{0}    Server server = new Server(svrconn);", indent);
                 SourceWriter.WriteLine(@"{0}    server.ConnectionContext.SqlExecutionModes = SqlExecutionModes.CaptureSql;", indent, sql_attr_name);
                 SourceWriter.WriteLine(@"{0}    server.ConnectionContext.ExecuteNonQuery(Resource1.{1});", indent, sql_attr_name);
-                //SourceWriter.WriteLine(@"{0}    int statement = 0;", indent);
                 SourceWriter.WriteLine(@"{0}    foreach (string s in server.ConnectionContext.CapturedSql.Text) {{", indent);
-                //SourceWriter.WriteLine(@"{0}        Console.WriteLine(""{{0}} Statement {{1}} of {{2}}"", DateTime.Now, ++statement, server.ConnectionContext.CapturedSql.Text.Count);", indent);
                 sql_variable_name = "s";
                 indent = indent + "    ";
             } else {
@@ -501,19 +502,20 @@ namespace csharp_dessist
             // What type of variable reading are we doing?
             if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
                 SourceWriter.WriteLine(@"{0}        result = cmd.ExecuteScalar();", indent);
-            } else {
+            } else if (binding != null) {
                 SourceWriter.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
                 SourceWriter.WriteLine(@"{0}        result = new DataTable();", indent);
                 SourceWriter.WriteLine(@"{0}        result.Load(dr);", indent);
                 SourceWriter.WriteLine(@"{0}        dr.Close();", indent);
+            } else {
+                SourceWriter.WriteLine(@"{0}        cmd.ExecuteNonQuery();", indent, connprefix);
             }
 
             // Finish up the SQL call
             SourceWriter.WriteLine(@"{0}    }}", indent);
             SourceWriter.WriteLine(@"{0}}}", indent);
 
-            // Do we have a result binding?
-            SsisObject binding = GetChildByType("SQLTask:ResultBinding");
+            // Do work with the bound result
             if (binding != null) {
                 string varname = binding.Attributes["SQLTask:DtsVariableName"];
                 string fixedname = FixVariableName(varname);
@@ -797,7 +799,7 @@ namespace csharp_dessist
 
             // Write the using clause for the connection
             SourceWriter.WriteLine();
-            SourceWriter.WriteLine(@"{0}    // Time to drop this all into the database", indent);
+            SourceWriter.WriteLine(@"{0}// Time to drop this all into the database", indent);
             SourceWriter.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""]{3})) {{", indent, connstr, connprefix, fixup);
             SourceWriter.WriteLine(@"{0}    conn.Open();", indent);
 
