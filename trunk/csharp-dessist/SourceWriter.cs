@@ -17,6 +17,7 @@ namespace csharp_dessist
         public static StreamWriter SourceFileStream = null;
 
         public static int LineNumber = 1;
+        public static int IndentSize = 0;
 
         public static List<string> _help_messages = new List<string>();
 
@@ -34,7 +35,7 @@ namespace csharp_dessist
                     s = String.Format("File {0} Line {1}: {2} (DTSID: {3})", "program.cs", LineNumber, message, obj.GetNearestGuid());
                 }
             }
-            WriteLine("// ImportError: {0}", message);
+            WriteLine("{0}// ImportError: {1}", new string(' ', IndentSize), message);
 
             // Log this problem
             _help_messages.Add(s);
@@ -55,6 +56,10 @@ namespace csharp_dessist
 
             // Also count how many embedded newlines there were in that string!
             LineNumber += newstring.Count(c => c == '\n');
+
+            // Remember the current indent size!
+            IndentSize = 0;
+            while (newstring[IndentSize] == ' ') IndentSize++;
         }
 
         /// <summary>
