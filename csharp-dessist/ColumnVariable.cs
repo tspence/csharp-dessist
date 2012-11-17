@@ -104,7 +104,9 @@ namespace csharp_dessist
                 return "float";
 
                 // Currency
-            } else if (ssistype == "cy" || ssistype == "numeric") {
+            } else if (ssistype == "cy") {
+                return "money";
+            } else if (ssistype == "numeric") {
                 return "decimal";
             } else {
                 SourceWriter.Help(null, "I don't yet understand the SSIS type named " + ssistype);
