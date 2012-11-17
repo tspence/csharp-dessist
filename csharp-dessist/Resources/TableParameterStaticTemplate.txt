@@ -1,12 +1,17 @@
 
 #region Table Parameter support (requires SQL Server 2008, but enables faster data insert)
         public static List<string> CreatedTableParams = new List<string>();
-        public static bool MustCreateTableParamFor(string s)
+        public static void CreateTableParamType(string tableparam, SqlConnection conn)
         {
-            bool result = !CreatedTableParams.Contains(s);
-            if (result) {
-                CreatedTableParams.Add(s);
+            // Only do this once each time the program executes
+            if (!CreatedTableParams.Contains(tableparam)) {
+                CreatedTableParams.Add(tableparam);
+
+                // Now create this table parameter using the provided connection
+                string table_param_create_sql = Resource1.ResourceManager.GetString(tableparam);
+                using (SqlCommand cmd = new SqlCommand(table_param_create_sql, conn)) {
+                    cmd.ExecuteNonQuery();
+                }
             }
-            return result;
         }
 #endregion

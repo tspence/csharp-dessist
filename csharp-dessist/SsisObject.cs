@@ -491,6 +491,10 @@ namespace csharp_dessist
 
             // Write the using clause for the connection
             SourceWriter.WriteLine(@"{0}    using (var cmd = new {2}Command({1}, conn)) {{", indent, sql_variable_name, connprefix);
+            if (this.Attributes.ContainsKey("SQLTask:TimeOut")) {
+                int timeout = int.Parse(this.Attributes["SQLTask:TimeOut"]);
+                SourceWriter.WriteLine(@"{0}        cmd.CommandTimeout = {1};", indent, timeout);
+            }
 
             // Handle our parameter binding
             foreach (SsisObject childobj in Children) {
@@ -806,16 +810,21 @@ namespace csharp_dessist
             // Ensure the table parameter type has been created correctly
             SourceWriter.WriteLine();
             SourceWriter.WriteLine(@"{0}    // Ensure the table parameter type has been created successfully", indent);
-            SourceWriter.WriteLine(@"{0}    if (MustCreateTableParamFor(""{1}"")) {{", indent, sql_tableparam_resource);
-            SourceWriter.WriteLine(@"{0}        using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_tableparam_resource, connprefix);
-            SourceWriter.WriteLine(@"{0}            cmd.ExecuteNonQuery();", indent);
-            SourceWriter.WriteLine(@"{0}        }}", indent);
-            SourceWriter.WriteLine(@"{0}    }}", indent);
+            SourceWriter.WriteLine(@"{0}    CreateTableParamType(""{1}"", conn);", indent, sql_tableparam_resource);
 
             // Let's use our awesome table parameter style!
             SourceWriter.WriteLine();
             SourceWriter.WriteLine(@"{0}    // Insert all rows at once using fast table parameter insert", indent);
             SourceWriter.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+
+            // Determine the timeout value specified in the pipeline
+            SsisObject timeout_property = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "CommandTimeout");
+            if (timeout_property != null) {
+                int timeout = int.Parse(timeout_property.ContentValue);
+                SourceWriter.WriteLine(@"{0}        cmd.CommandTimeout = {1};", indent, timeout);
+            }
+
+            // Insert the table in one swoop
             SourceWriter.WriteLine(@"{0}        SqlParameter param = new SqlParameter(""@tableparam"", SqlDbType.Structured);", indent);
             SourceWriter.WriteLine(@"{0}        param.Value = component{1};", indent, this.Attributes["id"]);
             SourceWriter.WriteLine(@"{0}        param.TypeName = ""{1}"";", indent, tableparamname);
@@ -928,6 +937,8 @@ namespace csharp_dessist
             // This is the laziest possible way to do this insert - may want to improve it later
             SourceWriter.WriteLine(@"{0}    for (int row = 0; row < {1}.Rows.Count; row++) {{", indent, component);
             SourceWriter.WriteLine(@"{0}        using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+            int timeout = 0;
+            SourceWriter.WriteLine(@"{0}            cmd.CommandTimeout = {1};", indent, timeout);
             SourceWriter.WriteLine(paramsetup.ToString());
             SourceWriter.WriteLine(@"{0}            cmd.ExecuteNonQuery();", indent);
             SourceWriter.WriteLine(@"{0}        }}", indent);
@@ -1035,6 +1046,13 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}using (var conn = new {2}Connection(ConfigurationManager.AppSettings[""{1}""])) {{", indent, connstr, connprefix);
             SourceWriter.WriteLine(@"{0}    conn.Open();", indent);
             SourceWriter.WriteLine(@"{0}    using (var cmd = new {2}Command(Resource1.{1}, conn)) {{", indent, sql_resource_name, connprefix);
+
+            // Determine the timeout value specified in the pipeline
+            SsisObject timeout_property = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "CommandTimeout");
+            if (timeout_property != null) {
+                int timeout = int.Parse(timeout_property.ContentValue);
+                SourceWriter.WriteLine(@"{0}        cmd.CommandTimeout = {1};", indent, timeout);
+            }
 
             // Okay, let's load the parameters
             var paramlist = this.GetChildByType("properties").GetChildByTypeAndAttr("property", "name", "ParameterMapping");
