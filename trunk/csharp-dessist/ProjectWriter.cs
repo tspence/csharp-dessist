@@ -191,7 +191,9 @@ namespace csharp_dessist
             File.WriteAllText(Path.Combine(propfolder, "AssemblyInfo.cs"), assembly);
 
             // Spit out the assembly file
-            File.WriteAllText(Path.Combine(propfolder, "RecursiveTimeLog.cs"), Resource1.RecursiveTimeLog);
+            File.WriteAllText(Path.Combine(folder, "RecursiveTimeLog.cs"), 
+                Resource1.RecursiveTimeLog
+                .Replace("@@NAMESPACE@@", appname));
 
             // Write out the help notes
             Console.WriteLine("Decompilation completed.");

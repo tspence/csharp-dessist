@@ -47,7 +47,7 @@ namespace csharp_dessist
 
         public string SqlDbType()
         {
-            return LookupSsisTypeSqlName(SsisTypeName, Length);
+            return LookupSsisTypeSqlName(SsisTypeName, Length, int.Parse(Precision), int.Parse(Scale));
         }
 
         public static string LookupSsisTypeName(string p)
@@ -70,7 +70,7 @@ namespace csharp_dessist
             } else if (p == "r4" || p == "r8") {
                 return "double";
 
-                // Currency
+                // Currency & numerics both become decimals
             } else if (p == "cy" || p == "numeric") {
                 return "System.Decimal";
             } else {
@@ -79,7 +79,7 @@ namespace csharp_dessist
             return null;
         }
 
-        public static string LookupSsisTypeSqlName(string ssistype, string length)
+        public static string LookupSsisTypeSqlName(string ssistype, string length, int precision, int scale)
         {
             // Skip Data Transformation Underscore
             if (ssistype.StartsWith("DT_")) ssistype = ssistype.Substring(3);
@@ -107,7 +107,7 @@ namespace csharp_dessist
             } else if (ssistype == "cy") {
                 return "money";
             } else if (ssistype == "numeric") {
-                return "decimal";
+                return String.Format("decimal({0},{1})", precision, scale);
             } else {
                 SourceWriter.Help(null, "I don't yet understand the SSIS type named " + ssistype);
             }

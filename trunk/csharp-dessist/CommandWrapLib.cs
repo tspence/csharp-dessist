@@ -113,20 +113,18 @@ public static class CommandWrapLib
         // Let's find all the static properties the user wanted us to wrap
         _properties = FindWrappedProperties(a);
         
-        // There was only one wrapped call - assume we're calling that!
-        if (_methods.Count == 1) {
-            TryAllMethods(a, _methods.GetOnlyMethod(), args);
-            return;
-        }
-
         // Did the user provide any arguments?  If so, try to interpret in a way that results in a function call
         if (args.Length > 0) {
 
             // If we have arguments, let's attempt to call the matching one of them
-            MatchingMethods mm = null;
-            if (_methods.TryGetValue(args[0], out mm)) {
-                TryAllMethods(a, mm, args.Skip(1).ToArray());
-                return;
+            if (_methods.Count == 1) {
+                TryAllMethods(a, _methods.ListMethods().First(), args);
+            } else {
+                MatchingMethods mm = null;
+                if (_methods.TryGetValue(args[0], out mm)) {
+                    TryAllMethods(a, mm, args.Skip(1).ToArray());
+                    return;
+                }
             }
 
             // We didn't find a match; show general help

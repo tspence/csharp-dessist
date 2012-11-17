@@ -25,7 +25,7 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="ssis_filename"></param>
         /// <param name="output_folder"></param>
-        [Wrap(Description="CSHARP-DESSIST - Read in data from an SSIS package and produce an equivalent C# program using .NET 4.0.")]
+        [Wrap(Name="DESSIST", Description="CSHARP-DESSIST - Read in data from an SSIS package and produce an equivalent C# program using .NET 4.0.")]
         public static void ParseSsisPackage(string ssis_filename, string output_folder, SqlCompatibilityType SqlMode = SqlCompatibilityType.SQL2008, bool UseSqlSMO = true)
         {
             XmlReaderSettings set = new XmlReaderSettings();
