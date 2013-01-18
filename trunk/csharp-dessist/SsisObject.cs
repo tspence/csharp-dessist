@@ -579,6 +579,12 @@ namespace csharp_dessist
                 components.Remove(child);
             }
 
+            // These are the "flat file source" readers
+            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5ACD952A-F16A-41D8-A681-713640837664}")) {
+                child.EmitFlatFilePipelineReader(this, indent);
+                components.Remove(child);
+            }
+
             // Iterate through all transformations
             foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}")) {
                 child.EmitPipelineTransform(this, indent);
@@ -1005,6 +1011,95 @@ namespace csharp_dessist
                     SourceWriter.Help(this, "I'm trying to do a transform, but I don't have any properties to use.");
                 }
             }
+        }
+
+        private void EmitFlatFilePipelineReader(SsisObject pipeline, string indent)
+        {
+            // Make sure to include CSV
+            ProjectWriter.UseCsvFile = true;
+
+            // Produce a function header
+            SourceWriter.WriteLine();
+            SourceWriter.WriteLine(@"{0}// {1}", indent, Attributes["name"]);
+
+            // Get the connection string GUID: it's this.connections.connection
+            string conn_guid = this.GetChildByType("connections").GetChildByType("connection").Attributes["connectionManagerID"];
+            SsisObject flat_file_obj = GetObjectByGuid(conn_guid).Children[0].Children[0];
+
+            // Some sensible checks
+            if (flat_file_obj.Properties["Format"] != "Delimited") {
+                SourceWriter.Help(flat_file_obj, "The flat file data source is not delimited - DESSIST doesn't have support for this file type!");
+            }
+
+            // Retrieve what we need to know about this flat file
+            string filename = flat_file_obj.Properties["ConnectionString"];
+
+            // Generate the list of column headers from the connection string object
+            List<SsisObject> columns = new List<SsisObject>();
+            foreach (var child in flat_file_obj.Children) {
+                if (child.DtsObjectType == "DTS:FlatFileColumn") {
+                    columns.Add(child);
+                }
+            }
+
+            // Now produce the list of lineage objects from the component
+            List<SsisObject> outputs = new List<SsisObject>();
+            foreach (var child in this.GetChildByType("outputs").GetChildByType("output").GetChildByType("outputColumns").Children) {
+                if (child.DtsObjectType == "outputColumn") {
+                    outputs.Add(child);
+                }
+            }
+            if (columns.Count != outputs.Count) {
+                SourceWriter.Help(this, "The list of columns in this flat file component doesn't match the columns in the data source.");
+            }
+
+            // Now pair up all the outputs to generate header columns and lineage objects
+            StringBuilder headers = new StringBuilder("new string[] {");
+            for (int i = 0; i < columns.Count; i++) {
+                string name = columns[i].DtsObjectName;
+                headers.AppendFormat("\"{0}\", ", name.Replace("\"", "\\\""));
+                LineageObject lo = new LineageObject(outputs[i].Attributes["lineageId"], "component" + this.Attributes["id"], name);
+                pipeline._lineage_columns.Add(lo);
+            }
+            headers.Length -= 2;
+            headers.Append(" }");
+
+            // This is set to -1 if the column names aren't in the first row in the data file
+            string qual = FixDelimiter(flat_file_obj.Properties["TextQualifier"]);
+            string delim = FixDelimiter(columns[0].Properties["ColumnDelimiter"]);
+            if (flat_file_obj.Properties["ColumnNamesInFirstDataRow"] == "-1") {
+                SourceWriter.WriteLine(@"{0}DataTable component{1} = CSVFile.CSV.LoadDataTable(""{2}"", {3}, true, '{4}', '{5}');", indent, this.Attributes["id"], filename.Replace("\\", "\\\\"), headers.ToString(), delim, qual);
+            } else {
+                SourceWriter.WriteLine(@"{0}DataTable component{1} = CSVFile.CSV.LoadDataTable(""{2}"", true, true, '{3}', '{4}');", indent, this.Attributes["id"], filename.Replace("\\", "\\\\"), delim, qual);
+            }
+        }
+
+        /// <summary>
+        /// Take a hex-encoded delimiter and turn it into a real string
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        private string FixDelimiter(string s)
+        {
+            // Here's a regex
+            Regex r = new Regex("_x[0-9A-F][0-9A-F][0-9A-F][0-9A-F]_");
+
+            // Chip apart into individual hex bits
+            while (true) {
+
+                // Look for a match
+                Match m = r.Match(s);
+                if (m.Success) {
+                    int val = Convert.ToInt32(m.Value.Substring(2,4), 16);
+                    char c = (char)val;
+                    s = s.Substring(0, m.Index) + c + s.Substring(m.Index + m.Length);
+                } else {
+                    break;
+                }
+            }
+
+            // Here's what you've got
+            return s;
         }
 
         private void EmitPipelineReader(SsisObject pipeline, string indent)
