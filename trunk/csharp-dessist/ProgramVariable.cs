@@ -38,7 +38,7 @@ namespace csharp_dessist
             } else if (DtsType == "8") {
                 CSharpType = "string";
                 if (!String.IsNullOrEmpty(DefaultValue)) {
-                    DefaultValue = "\"" + DefaultValue + "\"";
+                    DefaultValue = "\"" + DefaultValue.Replace("\\","\\\\").Replace("\"","\\\"") + "\"";
                 }
             } else if (DtsType == "13") {
                 CSharpType = "DataTable";
