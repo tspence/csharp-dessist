@@ -21,6 +21,7 @@ namespace csharp_dessist
         public static List<string> DllFiles = new List<string>();
 
         public static bool UseSqlServerManagementObjects = false;
+        public static bool UseCsvFile = false;
 
         public static void EmitScriptProject(SsisObject o, string indent)
         {
@@ -153,6 +154,15 @@ namespace csharp_dessist
                     <Reference Include=""Microsoft.SqlServer.Smo, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL"">
                       <SpecificVersion>False</SpecificVersion>
                       <HintPath>Microsoft.SqlServer.Smo.dll</HintPath>
+                    </Reference>");
+            }
+
+            // Copy the CSV stuff if necessary
+            if (UseCsvFile) {
+                File.Copy("CSVFile.dll", Path.Combine(folder, "CSVFile.dll"), true);
+                DllReferences.Append(@"<Reference Include=""CSVFile, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"">
+                      <SpecificVersion>False</SpecificVersion>
+                      <HintPath>CSVFile.dll</HintPath>
                     </Reference>");
             }
 
