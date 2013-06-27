@@ -71,7 +71,10 @@ namespace csharp_dessist
         public static string GetConnectionStringName(string conn_guid_str)
         {
             SsisObject connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
-            string connstr = connobj.DtsObjectName;
+            string connstr = "";
+            if (connobj != null) {
+                connstr = connobj.DtsObjectName;
+            }
             return connstr;
         }
 
@@ -83,6 +86,9 @@ namespace csharp_dessist
         public static string GetConnectionStringPrefix(string conn_guid_str)
         {
             SsisObject connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
+            if (connobj == null) {
+                return "Sql";
+            }
             string objecttype = connobj.Properties["CreationName"];
             if (objecttype.StartsWith("OLEDB")) {
                 return "OleDb";
