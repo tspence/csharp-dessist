@@ -65,6 +65,18 @@ namespace csharp_dessist
 
             // Next, write all the executable functions to the main file
             var functions = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Executable" select c;
+            if (!functions.Any()) {
+                var executables = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Executables" select c;
+                List<SsisObject> flist = new List<SsisObject>();
+                foreach (var exec in executables) {
+                    flist.AddRange(from e in exec.Children where e.DtsObjectType == "DTS:Executable" select e);
+                }
+                if (flist.Count == 0) {
+                    Console.WriteLine("No functions ('DTS:Executable') objects found in the specified file.");
+                    return;
+                }
+                functions = flist;
+            }
             var variables = from SsisObject c in o.Children where c.DtsObjectType == "DTS:Variable" select c;
             WriteProgram(variables, functions, Path.Combine(output_folder, "program.cs"), projectname);
 

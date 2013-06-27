@@ -461,7 +461,7 @@ namespace csharp_dessist
             SsisObject binding = GetChildByType("SQLTask:ResultBinding");
 
             // Are we going to return anything?  Prepare a variable to hold it
-            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+            if (this.Attributes.ContainsKey("SQLTask:ResultType") && this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
                 SourceWriter.WriteLine(@"{0}object result = null;", indent, connstr);
             } else if (binding != null) {
                 SourceWriter.WriteLine(@"{0}DataTable result = null;", indent, connstr);
@@ -504,7 +504,7 @@ namespace csharp_dessist
             }
 
             // What type of variable reading are we doing?
-            if (this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
+            if (this.Attributes.ContainsKey("SQLTask:ResultType") && this.Attributes["SQLTask:ResultType"] == "ResultSetType_SingleRow") {
                 SourceWriter.WriteLine(@"{0}        result = cmd.ExecuteScalar();", indent);
             } else if (binding != null) {
                 SourceWriter.WriteLine(@"{0}        {1}DataReader dr = cmd.ExecuteReader();", indent, connprefix);
@@ -1259,8 +1259,8 @@ namespace csharp_dessist
 
         public static SsisObject GetObjectByGuid(Guid g)
         {
-            var v = _guid_lookup[g];
-            if (v == null) {
+            SsisObject v = null;
+            if (!_guid_lookup.TryGetValue(g, out v)) {
                 SourceWriter.Help(null, "Can't find object matching GUID " + g.ToString());
             }
             return v;
