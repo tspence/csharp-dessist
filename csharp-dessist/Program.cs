@@ -33,6 +33,9 @@ namespace csharp_dessist
             SsisObject o = new SsisObject();
             gSqlMode = SqlMode;
 
+            // Make sure output folder exists
+            Directory.CreateDirectory(output_folder);
+
             // Set the appropriate flag for SMO usage
             ProjectWriter.UseSqlServerManagementObjects = UseSqlSMO;
 
