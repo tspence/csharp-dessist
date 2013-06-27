@@ -117,24 +117,26 @@ public static class CommandWrapLib
 #if WINFORMS_UI_ONLY
         ShowGui(a, _methods);
 #else
+        // There was only one wrapped call - assume we're calling that!
+        if (_methods.Count == 1) {
+            TryAllMethods(a, _methods.GetOnlyMethod(), args);
+            return;
+        }
+
         // Did the user provide any arguments?  If so, try to interpret in a way that results in a function call
         if (args.Length > 0) {
 
             // If we have arguments, let's attempt to call the matching one of them
-            if (_methods.Count == 1) {
-                TryAllMethods(a, _methods.GetOnlyMethod(), args);
-            } else {
-                MatchingMethods mm = null;
-                if (_methods.TryGetValue(args[0], out mm)) {
-                    TryAllMethods(a, mm, args.Skip(1).ToArray());
-                    return;
-                }
+            MatchingMethods mm = null;
+            if (_methods.TryGetValue(args[0], out mm)) {
+                TryAllMethods(a, mm, args.Skip(1).ToArray());
+                return;
             }
 
             // We didn't find a match; show general help
             ShowHelp(String.Format("Method '{0}' is not recognized.", args[0]), a, _methods);
 
-        // User didn't specify anything - let's give them a nifty GUI!
+            // User didn't specify anything - let's give them a nifty GUI!
         } else {
 #if WINFORMS_UI_WRAPPER
             ShowGui(a, _methods);
@@ -284,16 +286,15 @@ public static class CommandWrapLib
         _gMethodBox.Height = _lblMethodDescriptor.Top + _lblMethodDescriptor.Height + 10;
 
         // Add global options groupbox, if necessary
-        //if (_properties != null && _properties.Count > 0) {
-        //    _gGlobalOptions = f.NextGroupBox("Global Options");
+        if (_properties != null && _properties.Count > 0) {
+            _gGlobalOptions = f.NextGroupBox("Global Options");
 
-        //    // Iterate through all global options
-        //    foreach (PropertyInfo pi in _properties) {
-        //        object o = pi.GetValue(null, null);
-        //        AutoForm.GenerateControlsForVariable(_gGlobalOptions, "g" + pi.Name, pi.Name, pi.GetWrapDesc(), pi.PropertyType, false, !pi.CanWrite, o);
-        //    }
-        //    FixupControlPositionsAndHeight(_gGlobalOptions);
-        //}
+            // Iterate through all global options
+            foreach (PropertyInfo pi in _properties) {
+                object o = pi.GetValue(null, null);
+                AutoForm.GenerateControlsForVariable(_gGlobalOptions, "g" + pi.Name, pi.Name, pi.GetWrapDesc(), pi.PropertyType, false, !pi.CanWrite, pi.GetWrapPassword(), o);
+            }
+        }
 
         // Add placeholder boxes for others
         _gRequiredParameters = f.NextGroupBox("Required Parameters");
@@ -337,38 +338,18 @@ public static class CommandWrapLib
                 parameters[i] = null;
             }
 
-            // Is this an optional parameter or a string that could be null?  Skip it if so
-            Control c = f.Controls.Find("check" + i.ToString(), true).FirstOrDefault();
-            if (c is CheckBox) {
-                if (!((CheckBox)c).Checked) {
-                    continue;
-                }
-            }
-
-            // Find our control!
-            c = f.Controls.Find("param" + i.ToString(), true).FirstOrDefault();
-
-            // Can we parse its value?
-            object val = null;
-            if (c is ComboBox) {
-                val = ((ComboBox)c).SelectedItem;
-            } else if (c is DateTimePicker) {
-                val = ((DateTimePicker)c).Value;
-            } else if (c is TextBox) {
-                val = ((TextBox)c).Text;
-            }
-
-            // Convert the parameter to something that can be used - if we fail, beep and highlight
-            try {
-                if (pilist[i].ParameterType.IsEnum) {
-                    parameters[i] = Enum.Parse(pilist[i].ParameterType, val.ToString());
-                } else {
-                    parameters[i] = Convert.ChangeType(val, pilist[i].ParameterType);
-                }
-                c.BackColor = System.Drawing.SystemColors.Window;
-            } catch {
-                c.BackColor = System.Drawing.Color.Yellow;
+            // Attempt to retrieve this value
+            if (!GetValueFromControls(f, i.ToString(), pilist[i].ParameterType, out parameters[i])) {
                 all_ok = false;
+            }
+        }
+
+        // Now do the global variables
+        object obj = null;
+        foreach (PropertyInfo pi in _properties) {
+            string id = "g" + pi.Name;
+            if (GetValueFromControls(f, id, pi.PropertyType, out obj)) {
+                pi.SetValue(null, obj, null);
             }
         }
 
@@ -377,6 +358,44 @@ public static class CommandWrapLib
             TryGuiMethod(f, mi, parameters);
         } else {
             MessageBox.Show(f, "Please correct the parameter errors shown above and try again.", "Parameter Error");
+        }
+    }
+
+    private static bool GetValueFromControls(Form f, string name, Type value_type, out object obj)
+    {
+        obj = null;
+
+        // Is this an optional parameter or a string that could be null?  Skip it if so
+        Control c = f.Controls.Find("check" + name, true).FirstOrDefault();
+        if (c is CheckBox) {
+            if (!((CheckBox)c).Checked) {
+                return true;
+            }
+        }
+
+        // Find our control!
+        c = f.Controls.Find("param" + name, true).FirstOrDefault();
+
+        // Can we parse its value?
+        object val = null;
+        if (c is ComboBox) {
+            val = ((ComboBox)c).SelectedItem;
+        } else if (c is DateTimePicker) {
+            val = ((DateTimePicker)c).Value;
+        } else if (c is TextBox) {
+            val = ((TextBox)c).Text;
+        }
+
+        // Convert the parameter to something that can be used - if we fail, beep and highlight
+        try {
+            if (value_type.IsEnum) {
+                obj = Enum.Parse(value_type, val.ToString());
+            } else {
+                obj = Convert.ChangeType(val, value_type);
+            }
+            return true;
+        } catch {
+            return false;
         }
     }
 
@@ -399,46 +418,45 @@ public static class CommandWrapLib
         _timer.Start();
         _frmOutput.FormClosed += new FormClosedEventHandler(_frmOutput_FormClosed);
         _frmOutput.ControlBox = false;
+        _frmOutput.Show(parent);
 
-        // Show the parameters that are being used for this call
-        ParameterInfo[] pilist = mi.GetParameters();
-        StringBuilder sb = new StringBuilder();
-        sb.AppendFormat("Calling {0} with the parameters:\r\n", mi.Name);
-        StringBuilder newname = new StringBuilder();
-        newname.Append(mi.Name);
-        newname.Append("(");
-        for (int i = 0; i < pilist.Length; i++) {
-            sb.AppendFormat("    {0} = {1}\r\n", pilist[i], parameters[i]);
-            newname.Append(parameters[i]);
-            newname.Append(",");
-        }
-        newname.Length -= 1;
-        newname.Append(");");
-        _frmOutput.Text = newname.ToString();
-        sb.AppendFormat("\r\n");
-        _txtOutput.AppendText(sb.ToString());
+        // Start a log
+        _log_folder = Environment.CurrentDirectory;
+        using (_log_writer = new StreamWriter(Path.Combine(_log_folder, String.Format("{0}_{1}.log", mi.Name, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))))) {
 
-        // Invoke the whole process in a new thread
-        System.Threading.Thread t = new Thread(delegate()
-        {
-            _log_folder = Environment.CurrentDirectory;
-            using (_log_writer = new StreamWriter(Path.Combine(_log_folder, String.Format("{0}_{1}.log", mi.Name, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"))))) {
-
-                // Spawn this method in a different thread - but only if we're not debugging!  Threads make debugging harder.
-                if (System.Diagnostics.Debugger.IsAttached) {
-                    ExecuteMethod(mi, parameters, _frmOutput);
-
-                    // If no debugger is attached, running threads keeps the UI responsive.
-                } else {
-                    ThreadStart work = delegate { ExecuteMethod(mi, parameters, _frmOutput); };
-                    new Thread(work).Start();
-                }
-                _log_writer.Close();
+            // Show the parameters that are being used for this call
+            ParameterInfo[] pilist = mi.GetParameters();
+            StringBuilder sb = new StringBuilder();
+            sb.AppendFormat("Calling {0} with the parameters:\r\n", mi.Name);
+            StringBuilder newname = new StringBuilder();
+            newname.Append(mi.Name);
+            newname.Append("(");
+            for (int i = 0; i < pilist.Length; i++) {
+                sb.AppendFormat("    {0} = {1}\r\n", pilist[i], parameters[i]);
+                newname.Append(parameters[i]);
+                newname.Append(",");
             }
-            _log_writer = null;
-        });
-        t.Start();
-        _frmOutput.ShowDialog(parent);
+            newname.Length -= 1;
+            newname.Append(");");
+            _frmOutput.Text = newname.ToString();
+            _txtOutput.Text = sb.ToString();
+            _log_writer.WriteLine(sb.ToString());
+
+            // Invoke the whole process in a new thread
+            System.Threading.Thread t = new Thread(delegate()
+            {
+                ExecuteMethod(mi, parameters, _frmOutput);
+            });
+            t.Start();
+
+            // Show the output dialog box while we wait for the execution to complete
+            _frmOutput.Hide();
+            _frmOutput.ShowDialog(parent);
+
+            // Wrap up the logging
+            _log_writer.Close();
+        }
+        _log_writer = null;
     }
 
     /// <summary>
@@ -448,8 +466,10 @@ public static class CommandWrapLib
     /// <param name="e"></param>
     static void _frmOutput_FormClosed(object sender, FormClosedEventArgs e)
     {
-        _timer.Stop();
-        _timer = null;
+        if (_timer != null) {
+            _timer.Stop();
+            _timer = null;
+        }
     }
 
     /// <summary>
@@ -482,7 +502,6 @@ public static class CommandWrapLib
         _gOptionalParameters.Height = 20;
 
         // Find the method we want to show - and don't do anything if the user went up to index zero
-        int MaxWidth = 0;
         if (cb.SelectedIndex > 0) {
             MethodInfo mi = _method_dict[cb.SelectedIndex - 1];
 
@@ -501,7 +520,7 @@ public static class CommandWrapLib
                 } else {
                     target = _gRequiredParameters;
                 }
-                AutoForm.GenerateControlsForVariable(target, i.ToString(), pi.Name, null, pi.ParameterType, pi.IsOptional);
+                AutoForm.GenerateControlsForVariable(target, i.ToString(), pi.Name, null, pi.ParameterType, pi.IsOptional, false, false, null);
             }
 
             // Fixup everything to the maximum width value
@@ -545,11 +564,11 @@ public static class CommandWrapLib
                 Console.WriteLine("RESULT: {0} ({1})", result, result.GetType());
             }
 
-        // Exceptions get logged
+            // Exceptions get logged
         } catch (Exception ex) {
             Console.WriteLine("Exception: " + ex.ToString());
 
-        // Reset the standard out and standard error - this ensures no future errors after execution
+            // Reset the standard out and standard error - this ensures no future errors after execution
         } finally {
             Console.SetOut(StdOutRedir.OldWriter);
             Console.SetError(StdErrRedir.OldWriter);
@@ -626,7 +645,7 @@ public static class CommandWrapLib
     /// Try all methods from a matching list
     /// </summary>
     /// <param name="a"></param>
-    /// <param name="matchingMethods"></param>
+    /// <param name="methods_to_try"></param>
     /// <param name="args"></param>
     /// <param name="p"></param>
     private static void TryAllMethods(Assembly a, MatchingMethods methods_to_try, string[] args)
@@ -728,7 +747,7 @@ public static class CommandWrapLib
                 }
                 callparams[pos] = thisparam;
 
-            // Any parameter with a single hyphen is a "WrapLib" parameter
+                // Any parameter with a single hyphen is a "WrapLib" parameter
             } else if (thisarg.StartsWith("-")) {
                 char wrap_param = thisarg[1];
 
@@ -771,7 +790,6 @@ public static class CommandWrapLib
 
         // Execute this call and display the result (if any), plus its type
         DateTime start_time = DateTime.Now;
-        object result = null;
         try {
 
             // Okay, we're about to invoke!  Did the user want us to log the output?
@@ -788,12 +806,12 @@ public static class CommandWrapLib
 
                 ExecuteMethod(m, callparams, null);
 
-            // Close gracefully
+                // Close gracefully
             } finally {
                 if (_log_writer != null) _log_writer.Close();
             }
 
-        // Show some useful diagnostics
+            // Show some useful diagnostics
         } catch (Exception ex) {
             Console.WriteLine("EXCEPTION: " + ex.ToString());
         }
@@ -1023,6 +1041,23 @@ public static class CommandWrapLib
     }
 
     /// <summary>
+    /// Determine if the wrapped variable is a password field
+    /// </summary>
+    /// <param name="pi"></param>
+    /// <returns></returns>
+    public static bool GetWrapPassword(this PropertyInfo pi)
+    {
+        foreach (Attribute attr in pi.GetCustomAttributes(true)) {
+            if (attr is Wrap) {
+                return ((Wrap)attr).IsPassword;
+            }
+        }
+
+        // default is false
+        return false;
+    }
+
+    /// <summary>
     /// Returns true if this function call is wrapped
     /// </summary>
     /// <param name="mi"></param>
@@ -1210,6 +1245,11 @@ public class Wrap : Attribute
     /// The rich description of the wrapped function (overrides the XML help text if defined).
     /// </summary>
     public string Description = null;
+
+    /// <summary>
+    /// True if you want the text box for this field to be a password box.
+    /// </summary>
+    public bool IsPassword = false;
 }
 
 /// <summary>
@@ -1411,8 +1451,6 @@ public class AutoForm : Form
     /// <summary>
     /// Generate a new groupbox and add it to this contorl
     /// </summary>
-    /// <param name="f"></param>
-    /// <param name="previous"></param>
     /// <param name="name"></param>
     /// <returns></returns>
     public GroupBox NextGroupBox(string name)
@@ -1426,7 +1464,7 @@ public class AutoForm : Form
     /// <summary>
     /// Generate controls for a variable based on its type
     /// </summary>
-    public static void GenerateControlsForVariable(GroupBox target, string identifier, string name, string desc, Type vartype, bool optional, bool read_only = false, object default_value = null)
+    public static void GenerateControlsForVariable(GroupBox target, string identifier, string name, string desc, Type vartype, bool optional, bool read_only = false, bool is_password = false, object default_value = null)
     {
         // Make the label
         Label lbl = new Label();
@@ -1485,6 +1523,7 @@ public class AutoForm : Form
                 tb.Text = (string)default_value;
                 tb.Tag = tb.Text;
             }
+            tb.UseSystemPasswordChar = is_password;
             ctl = tb;
         }
         ctl.Width = target.Width - 100 - 30;
@@ -1512,6 +1551,10 @@ public class AutoForm : Form
                 chk.Width = chk.Height;
                 ctl.Left = chk.Left + chk.Width + 10;
                 ctl.Width = ctl.Width - chk.Width - 10;
+
+                // Is the value set?
+                chk.Checked = !(String.IsNullOrEmpty((string)default_value));
+                ctl.Enabled = !(String.IsNullOrEmpty((string)default_value));
             }
         }
 
@@ -1526,7 +1569,6 @@ public class AutoForm : Form
         if (chk != null) {
             chk.Top = top;
             target.Controls.Add(chk);
-            ctl.Enabled = false;
         }
         target.Controls.Add(ctl);
         target.Height = lbl.Top + lbl.Height + 10;
@@ -1542,11 +1584,15 @@ public class AutoForm : Form
         CheckBox cb = sender as CheckBox;
 
         // Find the matching data control
-        Control c = cb.Parent.Parent.Controls.Find("param" + cb.Name.Substring(5), true).FirstOrDefault();
-        if (c != null) {
-            c.Enabled = cb.Checked;
-            if (!c.Enabled) {
-                c.ResetText();
+        if (cb.Parent != null) {
+            Control c = cb.Parent.Parent.Controls.Find("param" + cb.Name.Substring(5), true).FirstOrDefault();
+            if (c != null) {
+                c.Enabled = cb.Checked;
+                if (!c.Enabled) {
+                    c.Text = "NULL";
+                } else {
+                    c.Text = "";
+                }
             }
         }
     }
@@ -1580,11 +1626,9 @@ public class TypedTextBox : TextBox
 
             // Reassert the corrected text
             if (backtostring != this.Text) {
-                int save = SelectionStart;
-                this.Text = backtostring;
-                System.Media.SystemSounds.Beep.Play();
-                SelectionStart = Math.Min(backtostring.Length, save - 1);
-                SelectionLength = 0;
+                this.BackColor = Color.LightYellow;
+            } else {
+                this.BackColor = SystemColors.Window;
             }
         }
         _last_good_value = this.Text;
