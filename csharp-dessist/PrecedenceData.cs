@@ -1,8 +1,7 @@
 ﻿/*
- * 2012 Ted Spence, http://tedspence.com
+ * 2012-2015 Ted Spence, http://tedspence.com
  * License: http://www.apache.org/licenses/LICENSE-2.0 
- * Home page: https://code.google.com/p/csharp-command-line-wrapper
- * 
+ * Home page: https://github.com/tspence/csharp-dessist
  */
 using System;
 using System.Collections.Generic;

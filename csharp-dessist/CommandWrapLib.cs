@@ -1,8 +1,8 @@
 ﻿/*
- * 2012 Ted Spence, http://tedspence.com
+ * 2012-2015 Ted Spence, http://tedspence.com
  * License: http://www.apache.org/licenses/LICENSE-2.0 
- * Home page: https://code.google.com/p/csharp-command-line-wrapper
-
+ * Home page: https://github.com/tspence/csharp-dessist
+ *
  * Some portions retrieved from DocsByReflection by Jim Blackler: http://jimblackler.net/blog/?p=49
  * His copyright notice is:
  * 

@@ -1,0 +1,20 @@
+Copyright (C) 2012-2015 Ted Spence
+
+This program reads an SSIS project and converts it to equivalent code in C# using best practices.
+
+Released under Apache 2.0 license.
+
+/*
+ * 2012-2015 Ted Spence, http://tedspence.com
+ * License: http://www.apache.org/licenses/LICENSE-2.0 
+ * Home page: https://github.com/tspence/csharp-csv-reader
+ */
+
+ Version 2.1 - Ported to github
+ Version 2.0 - Program is capable of decompiling the SSIS package samples I have and the executables work reliably
+ Version 1.9
+ Version 1.8 - Support for reading CSV files
+ Version 1.7
+ Version 1.6
+ Version 1.0 - First release of the program - had some serious bugs
+ 

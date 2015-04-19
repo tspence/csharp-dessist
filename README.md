@@ -1,6 +1,10 @@
 # csharp-dessist
 This program reads an SSIS package and decompiles it into an executable C# project, with source code and comments preserved.
 
+Download latest executable:
+* https://github.com/tspence/csharp-dessist/raw/master/Releases/csharp-dessist-2.1.zip
+
+
 # Example Usage:
 
 ```
