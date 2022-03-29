@@ -5,8 +5,14 @@ Download latest executable:
 * https://github.com/tspence/csharp-dessist/raw/master/Releases/csharp-dessist-2.1.zip
 
 
-# Example Usage:
+# Example Usage
 
+You can run this program directly using the Dot Net Framework.  It will show you a Windows Forms dialog
+that allows you to browse to an SSIS file and convert it into a C# program.
+
+![dessist-example-screenshot.png](dessist-example-screenshot.png)
+
+# Command Line Usage
 ```
 csharp-dessist.exe --ssis_filename=mypackage.dtsx --output_folder=c:\development\mypackage
 ```
@@ -20,6 +26,10 @@ csharp-dessist.exe --ssis_filename=mypackage.dtsx --output_folder=c:\development
 ```
 
 # Functionality
+Nine years later, this program continues to be occasionally popular with people stuck managing old SSIS packages.
+
+I've updated the program slightly and will publish it on NuGet.
+
 As of 2013-01-18, this program creates fully functional and executable CSharp projects from my test suite of SSIS packages. The objects it can decompile are:
 
 * Flat file data sources objects (CSV files)
