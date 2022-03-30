@@ -20,7 +20,7 @@ namespace csharp_dessist
         /// <param name="connstrings"></param>
         public static void WriteAppConfig(IEnumerable<SsisObject> connstrings, string filename)
         {
-            using (StreamWriter sw = new StreamWriter(filename, false, Encoding.UTF8)) {
+            using (var sw = new StreamWriter(filename, false, Encoding.UTF8)) {
 
                 // Write the header
                 sw.WriteLine(@"<?xml version=""1.0"" encoding=""utf-8""?>");
@@ -31,8 +31,8 @@ namespace csharp_dessist
                 sw.WriteLine(@"  <appSettings>");
 
                 // Write each one in turn
-                foreach (SsisObject connstr in connstrings) {
-                    string s = "Not Found";
+                foreach (var connstr in connstrings) {
+                    var s = "Not Found";
                     var v = connstr.GetChildByType("DTS:ObjectData");
                     if (v != null) {
 
@@ -47,11 +47,11 @@ namespace csharp_dessist
                             if (v2 != null) {
                                 v2.Attributes.TryGetValue("ConnectionString", out s);
                             } else {
-                                Console.WriteLine("Help");
+                                Trace.Log("Missing SmtpConnectionManager value");
                             }
                         }
                     }
-                    sw.WriteLine(String.Format(@"    <add key=""{0}"" value=""{1}"" />", connstr.DtsObjectName, s));
+                    sw.WriteLine($"    <add key=\"{connstr.DtsObjectName}\" value=\"{s}\" />");
 
                     // Save to the lookup
                 }
@@ -69,8 +69,8 @@ namespace csharp_dessist
         /// <returns></returns>
         public static string GetConnectionStringName(string conn_guid_str)
         {
-            SsisObject connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
-            string connstr = "";
+            var connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
+            var connstr = "";
             if (connobj != null) {
                 connstr = connobj.DtsObjectName;
             }

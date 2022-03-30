@@ -11,7 +11,6 @@ using System.Text.RegularExpressions;
 
 namespace csharp_dessist
 {
-    #region Token types
     public class Token
     {
         public string TypeRef;
@@ -135,7 +134,6 @@ namespace csharp_dessist
             return " " + Op + " ";
         }
     }
-    #endregion
 
     public class ExpressionData
     {

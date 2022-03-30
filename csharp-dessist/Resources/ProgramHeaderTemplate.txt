@@ -36,7 +36,6 @@ namespace @@NAMESPACE@@
 
 @@TABLEPARAMSTATIC@@
 
-#region Main()
         /// <summary>
         /// Main Function
         /// </summary>
@@ -46,6 +45,5 @@ namespace @@NAMESPACE@@
 			@@MAINFUNCTION@@();
             Console.WriteLine(timer.GetTimings());
         }
-#endregion
 
 

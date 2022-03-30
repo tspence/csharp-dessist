@@ -28,17 +28,17 @@ namespace csharp_dessist
             var script = o.GetChildByType("DTS:ObjectData").GetChildByType("ScriptProject");
 
             // Create a folder for this script
-            string project_folder = Path.Combine(AppFolder, o.GetFolderName());
+            var project_folder = Path.Combine(AppFolder, o.GetFolderName());
             Directory.CreateDirectory(project_folder);
 
             // Extract all the individual script files in this script
-            foreach (SsisObject child in script.Children) {
-                string fn = project_folder + child.Attributes["Name"];
-                string dir = Path.GetDirectoryName(fn);
+            foreach (var child in script.Children) {
+                var fn = project_folder + child.Attributes["Name"];
+                var dir = Path.GetDirectoryName(fn);
                 Directory.CreateDirectory(dir);
 
                 if (child.DtsObjectType == "BinaryItem") {
-                    byte[] contents = System.Convert.FromBase64String(child.ContentValue);
+                    var contents = System.Convert.FromBase64String(child.ContentValue);
                     File.WriteAllBytes(fn, contents);
                 } else if (child.DtsObjectType == "ProjectItem") {
                     File.WriteAllText(fn, child.ContentValue);
@@ -68,7 +68,7 @@ namespace csharp_dessist
 
         public static string AddSqlResource(string name, string resource)
         {
-            string munged_name = FixResourceName(name);
+            var munged_name = FixResourceName(name);
             _resources[munged_name] = resource;
             return munged_name;
         }
@@ -81,8 +81,8 @@ namespace csharp_dessist
         /// <returns></returns>
         private static string FixResourceName(string name)
         {
-            StringBuilder sb = new StringBuilder();
-            if (String.IsNullOrEmpty(name)) {
+            var sb = new StringBuilder();
+            if (string.IsNullOrEmpty(name)) {
                 sb.Append("UnnamedStatement");
             } else {
                 foreach (char c in name) {
@@ -95,8 +95,8 @@ namespace csharp_dessist
             }
 
             // Uniqueify!
-            string newname = sb.ToString().ToLower();
-            int i = 1;
+            var newname = sb.ToString().ToLower();
+            var i = 1;
             while (_resources.ContainsKey(newname)) {
                 newname = sb.ToString().ToLower() + "_" + i.ToString();
                 i++;
@@ -107,16 +107,16 @@ namespace csharp_dessist
         public static void WriteResourceAndProjectFile(string folder, string appname)
         {
             // Ensure resources folder exists
-            string resfolder = Path.Combine(folder, "Resources");
+            var resfolder = Path.Combine(folder, "Resources");
             Directory.CreateDirectory(resfolder);
-            string propfolder = Path.Combine(folder, "Properties");
+            var propfolder = Path.Combine(folder, "Properties");
             Directory.CreateDirectory(propfolder);
 
             // Let's produce the template of the resources
-            StringBuilder resfile = new StringBuilder();
-            StringBuilder prjfile = new StringBuilder();
-            StringBuilder desfile = new StringBuilder();
-            foreach (KeyValuePair<string, string> kvp in _resources) {
+            var resfile = new StringBuilder();
+            var prjfile = new StringBuilder();
+            var desfile = new StringBuilder();
+            foreach (var kvp in _resources) {
                 resfile.Append(Resource1.IndividualResourceSnippet.Replace("@@RESNAME@@", kvp.Key));
                 prjfile.Append(Resource1.IndividualResourceProjectSnippet.Replace("@@RESNAME@@", kvp.Key));
                 desfile.Append(Resource1.IndividualResourceDesignerTemplate.Replace("@@RESNAME@@", kvp.Key));
@@ -126,8 +126,8 @@ namespace csharp_dessist
             }
 
             // Iterate through DLLS
-            StringBuilder DllReferences = new StringBuilder();
-            foreach (string dll in DllFiles) {
+            var DllReferences = new StringBuilder();
+            foreach (var dll in DllFiles) {
                 DllReferences.Append(
                     Resource1.DllReferenceTemplate
                     .Replace("@@FILENAMEWITHOUTEXTENSION@@", Path.GetFileNameWithoutExtension(dll))
@@ -139,9 +139,6 @@ namespace csharp_dessist
             
             // Copy the Microsoft SQL Server objects!
             if (UseSqlServerManagementObjects) {
-                File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Microsoft.SqlServer.ConnectionInfo.dll"), Path.Combine(folder, "Microsoft.SqlServer.ConnectionInfo.dll"), true);
-                File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Microsoft.SqlServer.Management.Sdk.Sfc.dll"), Path.Combine(folder, "Microsoft.SqlServer.Management.Sdk.Sfc.dll"), true);
-                File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Microsoft.SqlServer.Smo.dll"), Path.Combine(folder, "Microsoft.SqlServer.Smo.dll"), true);
                 DllReferences.Append(@"<Reference Include=""Microsoft.SqlServer.ConnectionInfo, Version=10.0.0.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91, processorArchitecture=MSIL"">
                       <SpecificVersion>False</SpecificVersion>
                       <HintPath>Microsoft.SqlServer.ConnectionInfo.dll</HintPath>
@@ -158,7 +155,6 @@ namespace csharp_dessist
 
             // Copy the CSV stuff if necessary
             if (UseCsvFile) {
-                File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CSVFile.dll"), Path.Combine(folder, "CSVFile.dll"), true);
                 DllReferences.Append(@"<Reference Include=""CSVFile, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL"">
                       <SpecificVersion>False</SpecificVersion>
                       <HintPath>CSVFile.dll</HintPath>
@@ -166,15 +162,15 @@ namespace csharp_dessist
             }
 
             // Resource needs a designer file too!
-            string designer =
+            var designer =
                 Resource1.ResourceDesignerTemplate
                 .Replace("@@APPNAME@@", appname)
                 .Replace("@@RESOURCES@@", desfile.ToString());
             File.WriteAllText(Path.Combine(folder, "Resource1.Designer.cs"), designer);
 
             // Spit out the project file
-            Guid proj_guid = Guid.NewGuid();
-            string project =
+            var proj_guid = Guid.NewGuid();
+            var project =
                 Resource1.ProjectTemplate
                 .Replace("@@RESOURCES@@", prjfile.ToString())
                 .Replace("@@DLLS@@", DllReferences.ToString())
@@ -183,8 +179,8 @@ namespace csharp_dessist
             File.WriteAllText(Path.Combine(folder, appname + ".csproj"), project);
 
             // Spit out the solution file
-            Guid sln_guid = Guid.NewGuid();
-            string solution =
+            var sln_guid = Guid.NewGuid();
+            var solution =
                 Resource1.SolutionTemplate
                 .Replace("@@PROJGUID@@", proj_guid.ToString().ToUpper())
                 .Replace("@@SOLUTIONGUID@@", sln_guid.ToString().ToUpper())
@@ -192,8 +188,8 @@ namespace csharp_dessist
             File.WriteAllText(Path.Combine(folder, appname + ".sln"), solution);
 
             // Spit out the assembly file
-            Guid asy_guid = Guid.NewGuid();
-            string assembly =
+            var asy_guid = Guid.NewGuid();
+            var assembly =
                 Resource1.AssemblyTemplate
                 .Replace("@@ASSEMBLYGUID@@", asy_guid.ToString())
                 .Replace("@@APPNAME@@", appname);
@@ -205,21 +201,24 @@ namespace csharp_dessist
                 .Replace("@@NAMESPACE@@", appname));
 
             // Write out the help notes
-            Console.WriteLine("Decompilation completed.");
+            Trace.Log("Decompilation completed.");
             if (SourceWriter._help_messages.Count > 0) {
-                string helpfile = Path.Combine(folder, "ImportErrors.txt");
+                var helpfile = Path.Combine(folder, "ImportErrors.txt");
                 File.Delete(helpfile);
-                using (StreamWriter sw = new StreamWriter(helpfile)) {
-                    foreach (String help in SourceWriter._help_messages) {
+                using (var sw = new StreamWriter(helpfile)) {
+                    foreach (var help in SourceWriter._help_messages) {
                         sw.WriteLine(help);
                     }
                 }
-                Console.WriteLine("{0} import errors encountered.", SourceWriter._help_messages.Count);
-                Console.WriteLine("Import errors written to " + helpfile);
-                Console.WriteLine();
-                Console.WriteLine("Please consider sharing a copy of your SSIS package with the DESSIST team.");
-                Console.WriteLine("Visit our website online here:");
-                Console.WriteLine("    https://code.google.com/p/csharp-dessist/");
+                Trace.Log($"{SourceWriter._help_messages.Count} import errors encountered.");
+                if (SourceWriter._help_messages.Count > 0)
+                {
+                    Trace.Log($"Import errors written to {helpfile}");
+                    Trace.Log();
+                    Trace.Log("Please consider opening an issue on GitHub to report these import errors to  the DESSIST team.");
+                    Trace.Log("Visit our website online here:");
+                    Trace.Log("    https://github.com/tspence/csharp-dessist");
+                }
             }
         }
     }

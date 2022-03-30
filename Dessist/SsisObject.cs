@@ -58,7 +58,6 @@ namespace csharp_dessist
         /// </summary>
         public string ContentValue;
 
-        #region Lineage Column Helpers
         private List<LineageObject> _lineage_columns = new List<LineageObject>();
 
         /// <summary>
@@ -71,10 +70,8 @@ namespace csharp_dessist
             return (from LineageObject l in _lineage_columns where (l.LineageId == id) select l).FirstOrDefault();
         }
 
-        #endregion
         private List<ProgramVariable> _scope_variables = new List<ProgramVariable>();
 
-        #region Shortcuts
 
         /// <summary>
         /// Set a property
@@ -115,9 +112,7 @@ namespace csharp_dessist
                     && (o.Attributes[attribute] == value) 
                     select o).FirstOrDefault();
         }
-        #endregion
 
-        #region Translate this object into C# code
         /// <summary>
         /// Produce this variable to the current stream
         /// </summary>
@@ -159,7 +154,7 @@ namespace csharp_dessist
         /// <param name="indent_depth"></param>
         /// <param name="as_global"></param>
         /// <param name="sw"></param>
-        internal void EmitFunction(string indent, List<ProgramVariable> scope_variables)
+        internal void EmitFunction(SqlCompatibilityType sqlMode, string indent, List<ProgramVariable> scope_variables)
         {
             _scope_variables.AddRange(scope_variables);
 
@@ -185,19 +180,19 @@ namespace csharp_dessist
 
             // Basic SQL command
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.ExecuteSQLTask.ExecuteSQLTask")) {
-                this.EmitSqlTask(indent);
+                this.EmitSqlTask(sqlMode, indent);
 
             // Basic "SEQUENCE" construct - just execute things in order!
             } else if (exec_type.StartsWith("STOCK:SEQUENCE")) {
-                EmitChildObjects(indent);
+                EmitChildObjects(sqlMode, indent);
 
             // Handle "FOR" and "FOREACH" loop types
             } else if (exec_type == "STOCK:FORLOOP") {
-                this.EmitForLoop(indent + "    ");
+                this.EmitForLoop(sqlMode, indent + "    ");
             } else if (exec_type == "STOCK:FOREACHLOOP") {
-                this.EmitForEachLoop(indent + "    ");
+                this.EmitForEachLoop(sqlMode, indent + "    ");
             } else if (exec_type == "SSIS.Pipeline.2") {
-                this.EmitPipeline(indent + "    ");
+                this.EmitPipeline(sqlMode, indent + "    ");
             } else if (exec_type.StartsWith("Microsoft.SqlServer.Dts.Tasks.SendMailTask.SendMailTask")) {
                 this.EmitSendMailTask(indent + "    ");
 
@@ -215,7 +210,7 @@ namespace csharp_dessist
             // Now emit any other functions that are chained into this
             foreach (SsisObject o in Children) {
                 if (o.DtsObjectType == "DTS:Executable") {
-                    o.EmitFunction(indent, _scope_variables);
+                    o.EmitFunction(sqlMode, indent, _scope_variables);
                 }
             }
         }
@@ -255,12 +250,12 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}}}", indent);
         }
 
-        private void EmitSqlTask(string indent)
+        private void EmitSqlTask(SqlCompatibilityType sqlMode, string indent)
         {
-            EmitChildObjects(indent);
+            EmitChildObjects(sqlMode, indent);
         }
 
-        private void EmitChildObjects(string indent)
+        private void EmitChildObjects(SqlCompatibilityType sqlMode, string indent)
         {
             string newindent = indent + "    ";
 
@@ -290,14 +285,14 @@ namespace csharp_dessist
                 foreach (SsisObject o in modified_children) {
 
                     // Are there any precedence triggers after this child?
-                    PrecedenceChain(o, precedence, newindent);
+                    PrecedenceChain(sqlMode, o, precedence, newindent);
                 }
             }
         }
 
-        private void PrecedenceChain(SsisObject prior_obj, List<PrecedenceData> precedence, string indent)
+        private void PrecedenceChain(SqlCompatibilityType sqlMode, SsisObject prior_obj, List<PrecedenceData> precedence, string indent)
         {
-            EmitOneChild(prior_obj, indent);
+            EmitOneChild(sqlMode, prior_obj, indent);
 
             // We just executed "prior_obj" - find what objects it causes to be triggered
             var triggered = (from PrecedenceData pd in precedence where pd.BeforeGuid == prior_obj.DtsId select pd);
@@ -312,15 +307,15 @@ namespace csharp_dessist
                 // Is there an expression?
                 if (!String.IsNullOrEmpty(pd.Expression)) {
                     SourceWriter.WriteLine(@"{0}if ({1}) {{", indent, FixExpression("System.Boolean", _lineage_columns, pd.Expression, true));
-                    PrecedenceChain(pd.Target, precedence, indent + "    ");
+                    PrecedenceChain(sqlMode, pd.Target, precedence, indent + "    ");
                     SourceWriter.WriteLine(@"{0}}}", indent);
                 } else {
-                    PrecedenceChain(pd.Target, precedence, indent);
+                    PrecedenceChain(sqlMode, pd.Target, precedence, indent);
                 }
             }
         }
 
-        private void EmitOneChild(SsisObject childobj, string newindent)
+        private void EmitOneChild(SqlCompatibilityType sqlMode, SsisObject childobj, string newindent)
         {
             // Is this a dummy "Object Data" thing?  If so ignore it and delve deeper
             if (childobj.DtsObjectType == "DTS:ObjectData") {
@@ -337,7 +332,7 @@ namespace csharp_dessist
 
                 // TODO: Handle "pipeline" objects
             } else if (childobj.DtsObjectType == "pipeline") {
-                childobj.EmitPipeline(newindent);
+                childobj.EmitPipeline(sqlMode, newindent);
             } else if (childobj.DtsObjectType == "DTS:PrecedenceConstraint") {
                 // ignore it - it's already been handled
             } else if (childobj.DtsObjectType == "DTS:LoggingOptions") {
@@ -363,7 +358,7 @@ namespace csharp_dessist
             SourceWriter.WriteLine(String.Format(@"{0}{1} = ({3})iter.ItemArray[{2}];", indent, varname, this.Properties["ValueIndex"], vd.CSharpType));
         }
 
-        private void EmitForEachLoop(string indent)
+        private void EmitForEachLoop(SqlCompatibilityType sqlMode, string indent)
         {
             // Retrieve the three settings from the for loop
             string iterator = FixVariableName(GetChildByType("DTS:ForEachEnumerator").GetChildByType("DTS:ObjectData").Children[0].Attributes["VarName"]);
@@ -385,13 +380,13 @@ namespace csharp_dessist
             SourceWriter.WriteLine();
 
             // Other interior objects and tasks
-            EmitChildObjects(indent);
+            EmitChildObjects(sqlMode, indent);
 
             // Close the loop
             SourceWriter.WriteLine(String.Format(@"{0}}}", indent));
         }
 
-        private void EmitForLoop(string indent)
+        private void EmitForLoop(SqlCompatibilityType sqlMode, string indent)
         {
             // Retrieve the three settings from the for loop
             string init = System.Net.WebUtility.HtmlDecode(this.Properties["InitExpression"]).Replace("@","");
@@ -402,7 +397,7 @@ namespace csharp_dessist
             SourceWriter.WriteLine(String.Format(@"{0}for ({1};{2};{3}) {{", indent, init, eval, assign));
 
             // Inner stuff ?
-            EmitChildObjects(indent);
+            EmitChildObjects(sqlMode, indent);
 
             // Close the loop
             SourceWriter.WriteLine(String.Format(@"{0}}}", indent));
@@ -553,10 +548,8 @@ namespace csharp_dessist
                 return obj.DtsObjectName;
             }
         }
-        #endregion
 
-        #region Pipeline Logic
-        private void EmitPipeline(string indent)
+        private void EmitPipeline(SqlCompatibilityType sqlMode, string indent)
         {
             // Find the component container
             var component_container = GetChildByType("DTS:ObjectData").GetChildByType("pipeline").GetChildByType("components");
@@ -565,53 +558,50 @@ namespace csharp_dessist
                 return;
             }
 
-            // Produce a "row count" variable we can use
-            //SourceWriter.WriteLine(@"{0}int row_count = 0;", indent);
-
             // Keep track of original components
-            List<SsisObject> components = new List<SsisObject>();
+            var components = new List<SsisObject>();
             components.AddRange(component_container.Children);
 
             // Produce all the readers
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BCEFE59B-6819-47F7-A125-63753B33ABB7}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BCEFE59B-6819-47F7-A125-63753B33ABB7}")) {
                 child.EmitPipelineReader(this, indent);
                 components.Remove(child);
             }
 
             // These are the "flat file source" readers
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5ACD952A-F16A-41D8-A681-713640837664}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5ACD952A-F16A-41D8-A681-713640837664}")) {
                 child.EmitFlatFilePipelineReader(this, indent);
                 components.Remove(child);
             }
 
             // Iterate through all transformations
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{BD06A22E-BC69-4AF7-A69B-C44C2EF684BB}")) {
                 child.EmitPipelineTransform(this, indent);
                 components.Remove(child);
             }
 
             // Iterate through all transformations - this is basically the same thing but this time it uses "expression" rather than "type conversion"
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{2932025B-AB99-40F6-B5B8-783A73F80E24}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{2932025B-AB99-40F6-B5B8-783A73F80E24}")) {
                 child.EmitPipelineTransform(this, indent);
                 components.Remove(child);
             }
 
             // Iterate through unions
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{4D9F9B7C-84D9-4335-ADB0-2542A7E35422}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{4D9F9B7C-84D9-4335-ADB0-2542A7E35422}")) {
                 child.EmitPipelineUnion(this, indent);
                 components.Remove(child);
             }
 
             // Iterate through all multicasts
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{1ACA4459-ACE0-496F-814A-8611F9C27E23}")) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{1ACA4459-ACE0-496F-814A-8611F9C27E23}")) {
                 //child.EmitPipelineMulticast(this, indent);
                 SourceWriter.WriteLine(@"{0}// MULTICAST: Using all input and writing to multiple outputs", indent);
                 components.Remove(child);
             }
 
             // Process all the writers
-            foreach (SsisObject child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}")) {
-                if (Program.gSqlMode == SqlCompatibilityType.SQL2008) {
+            foreach (var child in component_container.GetChildrenByTypeAndAttr("componentClassID", "{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}")) {
+                if (sqlMode == SqlCompatibilityType.SQL2008) {
                     child.EmitPipelineWriter_TableParam(this, indent);
                 } else {
                     child.EmitPipelineWriter(this, indent);
@@ -1177,9 +1167,7 @@ namespace csharp_dessist
             SourceWriter.WriteLine(@"{0}    }}", indent);
             SourceWriter.WriteLine(@"{0}}}", indent);
         }
-        #endregion
 
-        #region Helper functions
 
         /// <summary>
         /// Determines if the SQL statement is written in SQLCMD style (e.g. including "GO" statements) or as a regular SQL string
@@ -1294,6 +1282,5 @@ namespace csharp_dessist
             if (o != null) return o.DtsId;
             return Guid.Empty;
         }
-        #endregion
     }
 }

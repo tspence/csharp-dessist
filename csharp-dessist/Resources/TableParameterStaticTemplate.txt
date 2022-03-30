@@ -1,5 +1,4 @@
 
-#region Table Parameter support (requires SQL Server 2008, but enables faster data insert)
         public static List<string> CreatedTableParams = new List<string>();
         public static void CreateTableParamType(string tableparam, SqlConnection conn)
         {
@@ -14,4 +13,3 @@
                 }
             }
         }
-#endregion

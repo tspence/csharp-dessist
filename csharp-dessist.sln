@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Other Files", "Other Files"
 		dessist-example-screenshot.png = dessist-example-screenshot.png
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dessist", "Dessist\Dessist.csproj", "{ACC4526B-976A-4C17-8070-CE785B10D727}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,18 @@ Global
 		{2995CBA0-AD71-4034-87A7-333FA2DDCC6B}.Release|Mixed Platforms.Build.0 = Release|x86
 		{2995CBA0-AD71-4034-87A7-333FA2DDCC6B}.Release|x86.ActiveCfg = Release|x86
 		{2995CBA0-AD71-4034-87A7-333FA2DDCC6B}.Release|x86.Build.0 = Release|x86
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Debug|x86.Build.0 = Debug|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|x86.ActiveCfg = Release|Any CPU
+		{ACC4526B-976A-4C17-8070-CE785B10D727}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,3 +4,5 @@ csharp-dessist/obj/
 .idea
 packages
 *.user
+obj
+bin

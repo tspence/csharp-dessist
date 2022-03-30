@@ -40,7 +40,7 @@ namespace csharp_dessist
             _help_messages.Add(s);
 
             // Emit a comment
-            Console.WriteLine(s);
+            Trace.Log(s);
         }
 
         public static void Write(string s, params object[] arg)
