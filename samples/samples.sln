@@ -1,0 +1,21 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{D183A3D8-5FD8-494B-B014-37F57B35E655}") = "Tutorial-Sample-1", "Tutorial-Sample-1\Tutorial-Sample-1.dtproj", "{0A59896E-87BF-426F-8F06-62739C56E673}"
+EndProject
+Project("{D183A3D8-5FD8-494B-B014-37F57B35E655}") = "SSMS-Samples", "SSMS-Samples\SSMS-Samples.dtproj", "{739583B2-358F-4D05-9476-AF939A9A9979}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Development|Default = Development|Default
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0A59896E-87BF-426F-8F06-62739C56E673}.Development|Default.ActiveCfg = Development
+		{0A59896E-87BF-426F-8F06-62739C56E673}.Development|Default.Build.0 = Development
+		{739583B2-358F-4D05-9476-AF939A9A9979}.Development|Default.ActiveCfg = Development
+		{739583B2-358F-4D05-9476-AF939A9A9979}.Development|Default.Build.0 = Development
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

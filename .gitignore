@@ -1,3 +1,6 @@
 csharp-dessist/bin/
 csharp-dessist/obj/
 *.suo
+.idea
+packages
+*.user
