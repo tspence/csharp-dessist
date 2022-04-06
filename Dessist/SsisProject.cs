@@ -12,7 +12,7 @@ namespace Dessist
         private readonly List<string> _logs = new List<string>();
         private SsisObject _ssis;
         public string Name { get; private set; }
-        private string _namespaceName;
+        public string Namespace { get; private set; }
         private Dictionary<string, ProgramVariable> _var_dict = new Dictionary<string, ProgramVariable>();
         private Dictionary<Guid, SsisObject> _guid_lookup = new Dictionary<Guid, SsisObject>();
 
@@ -48,11 +48,11 @@ namespace Dessist
         /// <param name="ssis_filename"></param>
         public static SsisProject LoadFromFile(string ssis_filename)
         {
-            var name = StringUtilities.CleanNamespaceName(Path.GetFileNameWithoutExtension(ssis_filename));
+            var name = Path.GetFileNameWithoutExtension(ssis_filename);
             var project = new SsisProject
             {
                 Name = name,
-                _namespaceName = name
+                Namespace = StringUtilities.CleanNamespaceName(name)
             };
 
             // Read in the file, one element at a time
@@ -72,13 +72,7 @@ namespace Dessist
         private SsisObject? ReadObject(XmlElement? element, SsisObject? parent)
         {
             if (element == null) return null;
-            var obj = new SsisObject(this, parent);
-            parent?.Children.Add(obj);
-            obj.DtsObjectType = element.Name;
-            foreach (XmlAttribute xa in element.Attributes)
-            {
-                obj.Attributes.Add(xa.Name, xa.Value);
-            }
+            var obj = new SsisObject(this, parent, element);
 
             // Iterate through all children of this element
             foreach (XmlNode child in element.ChildNodes)
@@ -113,15 +107,35 @@ namespace Dessist
         /// <summary>
         /// Find an SSIS object within this project by its GUID
         /// </summary>
-        /// <param name="g"></param>
+        /// <param name="guid"></param>
         /// <returns></returns>
-        public SsisObject? GetObjectByGuid(Guid g)
+        public SsisObject? GetObjectByGuid(Guid guid)
         {
-            if (_guid_lookup.TryGetValue(g, out var v))
+            if (_guid_lookup.TryGetValue(guid, out var v))
             {
                 return v;
             }
-            Log($"Can't find SSIS object matching GUID {g}");
+            Log($"Can't find SSIS object matching GUID {guid}");
+            return null;
+        }
+
+        /// <summary>
+        /// Find an SSIS object within this project by its GUID
+        /// </summary>
+        /// <param name="guidString"></param>
+        /// <returns></returns>
+        public SsisObject? GetObjectByGuid(string? guidString)
+        {
+            if (string.IsNullOrWhiteSpace(guidString))
+            {
+                return null;
+            }
+
+            if (Guid.TryParse(guidString, out var guid))
+            {
+                return GetObjectByGuid(guid);
+            }
+
             return null;
         }
 
@@ -165,5 +179,39 @@ namespace Dessist
 
         public readonly List<string> FolderNames = new List<string>();
 
+
+        public IEnumerable<SsisObject> Variables()
+        {
+            return from c in RootObject.Children where c.DtsObjectType == "DTS:Variable" select c;
+        }
+
+        public IEnumerable<SsisObject> Functions()
+        {
+            // Next, write all the executable functions to the main file
+            var functions = (from SsisObject c in RootObject.Children where c.DtsObjectType == "DTS:Executable" select c).ToList();
+            if (functions.Count > 0)
+            {
+                return functions;
+            }
+            
+            // Search through "Executables" root object second
+            var executables = from SsisObject c in RootObject.Children where c.DtsObjectType == "DTS:Executables" select c;
+            var functionList = new List<SsisObject>();
+            foreach (var exec in executables)
+            {
+                functionList.AddRange(from e in exec.Children where e.DtsObjectType == "DTS:Executable" select e);
+            }
+            if (functionList.Count == 0)
+            {
+                Log("No functions ('DTS:Executable') objects found in the specified file.");
+            }
+
+            return functionList;
+        }
+
+        public IEnumerable<SsisObject> ConnectionStrings()
+        {
+            return from SsisObject c in RootObject.Children where c.DtsObjectType == "DTS:ConnectionManager" select c;
+        }
    }
 }

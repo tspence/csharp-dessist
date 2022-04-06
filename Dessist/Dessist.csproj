@@ -7,4 +7,19 @@
         <LangVersion>10</LangVersion>
     </PropertyGroup>
 
+    <ItemGroup>
+      <EmbeddedResource Update="Writers\Resource1.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Writers\Resource1.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>Resource1.resx</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
 </Project>

@@ -97,5 +97,16 @@ namespace Dessist
             list.Add(newName);
             return newName;
         }
+        
+        /// <summary>
+        /// Determines if the SQL statement is written in SQLCMD style (e.g. including "GO" statements) or as a regular SQL string
+        /// </summary>
+        /// <param name="sql"></param>
+        /// <returns></returns>
+        public static bool IsSql(string sql)
+        {
+            // TODO: There really should be a better way to determine this
+            return sql.Contains("\nGO");
+        }
     }
 }

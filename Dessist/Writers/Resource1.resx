@@ -1,0 +1,585 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="AssemblyTemplate" xml:space="preserve">
+        <value>
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+// General Information about an assembly is controlled through the following 
+// set of attributes. Change these attribute values to modify the information
+// associated with an assembly.
+[assembly: AssemblyTitle("@@APPNAME@@")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("@@APPNAME@@")]
+[assembly: AssemblyCopyright("Copyright (C) @@YEAR@@")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+
+// Setting ComVisible to false makes the types in this assembly not visible 
+// to COM components.  If you need to access a type in this assembly from 
+// COM, set the ComVisible attribute to true on that type.
+[assembly: ComVisible(false)]
+
+// The following GUID is for the ID of the typelib if this project is exposed to COM
+[assembly: Guid("@@ASSEMBLYGUID@@")]
+
+// Version information for an assembly consists of the following four values:
+//
+//      Major Version
+//      Minor Version 
+//      Build Number
+//      Revision
+//
+// You can specify all the values or you can default the Build and Revision Numbers 
+// by using the '*' as shown below:
+// [assembly: AssemblyVersion("1.0.*")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+
+        </value>
+    </data>
+    <data name="DllReferenceTemplate" xml:space="preserve">
+        <value><![CDATA[
+    <Reference Include="@@FILENAMEWITHOUTEXTENSION@@">
+      <HintPath>@@RELATIVEPATH@@</HintPath>
+    </Reference>
+        ]]></value>
+    </data>
+    <data name="IndividualResourceDesignerTemplate" xml:space="preserve">
+        <value>
+        internal static string @@RESNAME@@ {
+            get {
+                return ResourceManager.GetString("@@RESNAME@@", resourceCulture);
+            }
+        }
+        </value>
+    </data>
+    <data name="IndividualResourceProjectSnippet" xml:space="preserve">
+        <value><![CDATA[
+    <None Include="Resources\@@RESNAME@@.sql" />
+        ]]></value>
+    </data>
+    <data name="IndividualResourceSnippet" xml:space="preserve">
+        <value><![CDATA[
+  <data name="@@RESNAME@@" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\@@RESNAME@@.sql;System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089;Windows-1252</value>
+  </data>
+        ]]></value>
+    </data>
+    <data name="ProgramFooterTemplate" xml:space="preserve">
+        <value><![CDATA[
+#endregion
+    }
+}
+        ]]></value>
+    </data>
+    <data name="ProgramHeaderTemplate" xml:space="preserve">
+        <value><![CDATA[
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.OleDb;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Net.Mail;
+using System.Text;
+using System.Xml;
+using System.IO;
+@@USINGSQLSMO@@
+
+namespace @@NAMESPACE@@
+{
+    public static class Extensions
+    {
+        /// <summary>
+        /// Converts a connection string in OLEDB format to one in ADO.NET format
+        /// </summary>
+        /// <param name="s">The connection string to change</param>
+        public static string FixupOleDb(this string s)
+        {
+            int p = s.IndexOf("Provider=", StringComparison.CurrentCultureIgnoreCase);
+            if (p >= 0) {
+                int p2 = s.IndexOf(';', p + 1);
+                return s.Substring(0, p) + s.Substring(p2 + 1);
+            }
+            return s;
+        }
+    }
+
+    public class Program
+    {
+        public static RecursiveTimeLog timer = new RecursiveTimeLog();
+
+@@TABLEPARAMSTATIC@@
+
+        /// <summary>
+        /// Main Function
+        /// </summary>
+        /// <param name="args"></param>
+        static void Main(string[] args)
+        {
+			@@MAINFUNCTION@@();
+            Console.WriteLine(timer.GetTimings());
+        }
+
+
+        ]]></value>
+    </data>
+    <data name="ProjectTemplate" xml:space="preserve">
+        <value><![CDATA[
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{@@PROJGUID@@}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>@@APPNAME@@</RootNamespace>
+    <AssemblyName>@@APPNAME@@</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile></TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>@@APPNAME@@.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+@@DLLS@@
+    <Reference Include="System" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RecursiveTimeLog.cs" />
+    <Compile Include="Resource1.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resource1.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ImportErrors.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resource1.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+@@RESOURCES@@
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
+        ]]></value>
+    </data>
+    <data name="RecursiveTimeLog" xml:space="preserve">
+        <value><![CDATA[
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace @@NAMESPACE@@
+{
+    public class RecursiveTimeLog
+    {
+        public class StackTiming
+        {
+            public string FunctionName;
+            public TimeSpan CumulativeTimeSpent;
+            public DateTime EntryTime = DateTime.Now;
+
+            public void ClockOut()
+            {
+                TimeSpan ts = DateTime.Now - EntryTime;
+                CumulativeTimeSpent += ts;
+            }
+
+            public void ClockIn()
+            {
+                EntryTime = DateTime.Now;
+            }
+        }
+
+        public class FunctionData
+        {
+            public TimeSpan CumulativeTimeSpent;
+            public int TimesCalled;
+        }
+
+        protected Dictionary<string, FunctionData> _time_dict = new Dictionary<string, FunctionData>();
+        protected Stack<StackTiming> _func_stack = new Stack<StackTiming>();
+
+        /// <summary>
+        /// Begin an entry on the stack trace
+        /// </summary>
+        /// <param name="func"></param>
+        public void Enter(string func)
+        {
+            // "Clock out" the prior item on the stack
+            if (_func_stack.Count > 0) {
+                _func_stack.Peek().ClockOut();
+            }
+
+            // Create a new stack frame and push our data onto the stack
+            StackTiming obj = new StackTiming() { FunctionName = func };
+            obj.ClockIn();
+            _func_stack.Push(obj);
+        }
+
+        /// <summary>
+        /// Pop an entry on the stack trace
+        /// </summary>
+        public void Leave()
+        {
+            // Remove the top item from the stack, record its time to the global log, and retire it
+            StackTiming obj = _func_stack.Pop();
+            obj.ClockOut();
+            FunctionData fd = null;
+            if (_time_dict.TryGetValue(obj.FunctionName, out fd)) {
+                fd.CumulativeTimeSpent += obj.CumulativeTimeSpent;
+            } else {
+                fd = new FunctionData();
+                fd.CumulativeTimeSpent = obj.CumulativeTimeSpent;
+            }
+            fd.TimesCalled += 1;
+            _time_dict[obj.FunctionName] = fd;
+
+            // Resume timing the next item
+            if (_func_stack.Count > 0) {
+                _func_stack.Peek().ClockIn();
+            }
+        }
+
+        /// <summary>
+        /// Report all the timings that occurred
+        /// </summary>
+        /// <returns></returns>
+        public string GetTimings()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("Function\tTime\tCalls\r\n");
+            foreach (KeyValuePair<string, FunctionData> kvp in _time_dict) {
+                sb.AppendFormat("{0}\t{1}\t{2}\r\n", kvp.Key, kvp.Value.CumulativeTimeSpent, kvp.Value.TimesCalled);
+            }
+            return sb.ToString();
+        }
+    }
+}
+        ]]></value>
+    </data>
+    <data name="ResourceDesignerTemplate" xml:space="preserve">
+        <value><![CDATA[
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//     Runtime Version:4.0.30319.269
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+namespace @@APPNAME@@ {
+    using System;
+    
+    
+    /// <summary>
+    ///   A strongly-typed resource class, for looking up localized strings, etc.
+    /// </summary>
+    // This class was auto-generated by the StronglyTypedResourceBuilder
+    // class via a tool like ResGen or Visual Studio.
+    // To add or remove a member, edit your .ResX file then rerun ResGen
+    // with the /str option, or rebuild your VS project.
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+    [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
+    internal class Resource1 {
+        
+        private static global::System.Resources.ResourceManager resourceMan;
+        
+        private static global::System.Globalization.CultureInfo resourceCulture;
+        
+        [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
+        internal Resource1() {
+        }
+        
+        /// <summary>
+        ///   Returns the cached ResourceManager instance used by this class.
+        /// </summary>
+        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
+        internal static global::System.Resources.ResourceManager ResourceManager {
+            get {
+                if (object.ReferenceEquals(resourceMan, null)) {
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("@@APPNAME@@.Resource1", typeof(Resource1).Assembly);
+                    resourceMan = temp;
+                }
+                return resourceMan;
+            }
+        }
+        
+        /// <summary>
+        ///   Overrides the current thread's CurrentUICulture property for all
+        ///   resource lookups using this strongly typed resource class.
+        /// </summary>
+        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
+        internal static global::System.Globalization.CultureInfo Culture {
+            get {
+                return resourceCulture;
+            }
+            set {
+                resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to test.
+        /// </summary>
+        internal static string test {
+            get {
+                return ResourceManager.GetString("test", resourceCulture);
+            }
+        }
+
+		@@RESOURCES@@
+    }
+}
+        ]]></value>
+    </data>
+    <data name="ResourceTemplate" xml:space="preserve">
+        <value><![CDATA[
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  @@RESOURCES@@
+</root>
+        ]]></value>
+    </data>
+    <data name="SolutionTemplate" xml:space="preserve">
+        <value><![CDATA[
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{@@SOLUTIONGUID@@}") = "@@APPNAME@@", "@@APPNAME@@.csproj", "{@@PROJGUID@@}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{@@PROJGUID@@}.Debug|x86.ActiveCfg = Debug|x86
+		{@@PROJGUID@@}.Debug|x86.Build.0 = Debug|x86
+		{@@PROJGUID@@}.Release|x86.ActiveCfg = Release|x86
+		{@@PROJGUID@@}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
+        ]]></value>
+    </data>
+    <data name="SqlSmoUsingTemplate" xml:space="preserve">
+        <value><![CDATA[
+using Microsoft.SqlServer.Management.Common;
+using Microsoft.SqlServer.Management.Smo;
+        ]]></value>
+    </data>
+    <data name="TableParameterStaticTemplate" xml:space="preserve">
+        <value><![CDATA[
+
+        public static List<string> CreatedTableParams = new List<string>();
+        public static void CreateTableParamType(string tableparam, SqlConnection conn)
+        {
+            // Only do this once each time the program executes
+            if (!CreatedTableParams.Contains(tableparam)) {
+                CreatedTableParams.Add(tableparam);
+
+                // Now create this table parameter using the provided connection
+                string table_param_create_sql = Resource1.ResourceManager.GetString(tableparam);
+                using (SqlCommand cmd = new SqlCommand(table_param_create_sql, conn)) {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        ]]></value>
+    </data>
+</root>

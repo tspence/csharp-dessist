@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+// ReSharper disable StringLiteralTypo
 
 namespace Dessist
 {
@@ -19,19 +20,25 @@ namespace Dessist
         public static int IndentSize = 0;
 
         public static List<string> _help_messages = new List<string>();
+        private readonly SsisProject _project;
 
-        public static void Help(SsisObject obj, string message)
+        public SourceWriter(SsisProject project)
+        {
+            _project = project;
+        }
+
+        public void Help(SsisObject? obj, string message)
         {
             // Figure out what to display
-            string s = null;
+            string? s = null;
             if (obj == null) {
                 s = "Help! " + message;
             } else {
-                Guid g = obj.GetNearestGuid();
+                var g = obj.GetNearestGuid();
                 if (g == Guid.Empty) {
-                    s = String.Format("File {0} Line {1}: {2}", "program.cs", LineNumber, message);
+                    s = $"File \"program.cs\" Line {LineNumber}: {message}";
                 } else {
-                    s = String.Format("File {0} Line {1}: {2} (DTSID: {3})", "program.cs", LineNumber, message, obj.GetNearestGuid());
+                    s = $"File \"program.cs\" Line {LineNumber}: {message} (DTSID: {obj.GetNearestGuid()})";
                 }
             }
             WriteLine("{0}// ImportError: {1}", new string(' ', IndentSize), message);
@@ -43,9 +50,9 @@ namespace Dessist
             _project.Log(s);
         }
 
-        public static void Write(string s, params object[] arg)
+        public void Write(string s, params object[]? arg)
         {
-            string newstring = null;
+            string? newstring = null;
             if (arg == null || arg.Length == 0) {
                 newstring = s;
             } else {
@@ -66,19 +73,9 @@ namespace Dessist
         /// </summary>
         /// <param name="s"></param>
         /// <param name="?"></param>
-        public static void WriteLine(string s, params object[] arg)
+        public void WriteLine(string s, params object[] arg)
         {
             Write(s + Environment.NewLine, arg);
-        }
-
-        /// <summary>
-        /// Write a blank line of text to the sourcecode file
-        /// </summary>
-        /// <param name="s"></param>
-        /// <param name="?"></param>
-        public static void WriteLine()
-        {
-            Write(Environment.NewLine);
         }
     }
 }

@@ -19,9 +19,11 @@ namespace Dessist
         public string VariableName;
         public string Namespace;
         public bool IsGlobal;
+        private readonly SsisProject _project;
 
         public ProgramVariable(SsisObject o, bool as_global)
         {
+            _project = o.Project;
             // Figure out what type of a variable we are
             DtsType = o.GetChildByType("DTS:VariableValue").Attributes["DTS:DataType"];
             CSharpType = null;
@@ -59,7 +61,7 @@ namespace Dessist
                     DefaultValue = "DateTime.Parse(\"" + DefaultValue + "\")";
                 }
             } else {
-                SourceWriter.Help(o, "I don't understand DTS type " + DtsType);
+                _project.Log($"I don't understand DTS type {DtsType}");
             }
         }
     }
