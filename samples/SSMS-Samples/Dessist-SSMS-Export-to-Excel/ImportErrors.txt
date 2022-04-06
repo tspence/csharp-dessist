@@ -1,0 +1,2 @@
+Help! I don't understand the database connection type EXCEL
+File program.cs Line 97: I don't yet know how to handle DTS.Pipeline (DTSID: 967c7c08-d891-417a-83b4-f367604fb8f7)

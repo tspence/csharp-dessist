@@ -3,13 +3,9 @@
  * License: http://www.apache.org/licenses/LICENSE-2.0 
  * Home page: https://github.com/tspence/csharp-dessist
  */
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.IO;
 
-namespace csharp_dessist
+namespace Dessist
 {
     public class ProjectWriter
     {
@@ -22,6 +18,104 @@ namespace csharp_dessist
         public static bool UseSqlServerManagementObjects = false;
         public static bool UseCsvFile = false;
 
+        /// <summary>
+        /// Produce C# files that replicate the functionality of an SSIS package
+        /// </summary>
+        /// <param name="sqlMode"></param>
+        /// <param name="output_folder"></param>
+        public void ProduceSsisDotNetPackage(SsisProject project, SqlCompatibilityType sqlMode, string output_folder)
+        {
+            // Make sure output folder exists
+            Directory.CreateDirectory(output_folder);
+            ProjectWriter.AppFolder = output_folder;
+
+            // First find all the connection strings and write them to an app.config file
+            var connectionStrings = from SsisObject c in project.RootObject.Children where c.DtsObjectType == "DTS:ConnectionManager" select c;
+            ConnectionWriter.WriteAppConfig(connectionStrings, Path.Combine(output_folder, "app.config"));
+
+            // Next, write all the executable functions to the main file
+            var functions = (from SsisObject c in project.RootObject.Children where c.DtsObjectType == "DTS:Executable" select c).ToList();
+            if (!functions.Any())
+            {
+                var executables = from SsisObject c in project.RootObject.Children where c.DtsObjectType == "DTS:Executables" select c;
+                var functionList = new List<SsisObject>();
+                foreach (var exec in executables)
+                {
+                    functionList.AddRange(from e in exec.Children where e.DtsObjectType == "DTS:Executable" select e);
+                }
+
+                if (functionList.Count == 0)
+                {
+                    project.Log("No functions ('DTS:Executable') objects found in the specified file.");
+                    return;
+                }
+
+                functions = functionList;
+            }
+
+            var variables = from SsisObject c in project.RootObject.Children where c.DtsObjectType == "DTS:Variable" select c;
+            WriteProgram(sqlMode, variables, functions, Path.Combine(output_folder, "program.cs"), project.Name);
+
+            // Next write the resources and the project file
+            ProjectWriter.WriteResourceAndProjectFile(output_folder, project.Name);
+        }
+        
+        /// <summary>
+        /// Write a program file that has all the major executable instructions as functions
+        /// </summary>
+        /// <param name="sqlMode"></param>
+        /// <param name="variables"></param>
+        /// <param name="functions"></param>
+        /// <param name="filename"></param>
+        /// <param name="appname"></param>
+        private static void WriteProgram(SqlCompatibilityType sqlMode, IEnumerable<SsisObject> variables,
+            List<SsisObject> functions, string filename, string appname)
+        {
+            using (SourceWriter.SourceFileStream = new StreamWriter(filename, false, Encoding.UTF8))
+            {
+                var smo_using = "";
+                var tableparamstatic = "";
+
+                // Are we using SMO mode?
+                if (ProjectWriter.UseSqlServerManagementObjects)
+                {
+                    smo_using = Resource1.SqlSmoUsingTemplate;
+                }
+
+                // Are we using SQL 2008 mode?
+                if (sqlMode == SqlCompatibilityType.SQL2008)
+                {
+                    tableparamstatic = Resource1.TableParameterStaticTemplate;
+                }
+
+                // Write the header in one fell swoop
+                SourceWriter.Write(
+                    Resource1.ProgramHeaderTemplate
+                        .Replace("@@USINGSQLSMO@@", smo_using)
+                        .Replace("@@NAMESPACE@@", appname)
+                        .Replace("@@TABLEPARAMSTATIC@@", tableparamstatic)
+                        .Replace("@@MAINFUNCTION@@", functions?.FirstOrDefault()?.GetFunctionName() ?? "UnknownMainFunction")
+                );
+
+                // Write each variable out as if it's a global
+                foreach (var v in variables)
+                {
+                    v.EmitVariable("        ", true);
+                }
+
+                SourceWriter.WriteLine();
+                SourceWriter.WriteLine();
+
+                // Write each executable out as a function
+                foreach (var v in functions)
+                {
+                    v.EmitFunction(sqlMode, "        ", new List<ProgramVariable>());
+                }
+
+                SourceWriter.WriteLine(Resource1.ProgramFooterTemplate);
+            }
+        }
+        
         public static void EmitScriptProject(SsisObject o, string indent)
         {
             // Find the script object child
@@ -81,27 +175,8 @@ namespace csharp_dessist
         /// <returns></returns>
         private static string FixResourceName(string name)
         {
-            var sb = new StringBuilder();
-            if (string.IsNullOrEmpty(name)) {
-                sb.Append("UnnamedStatement");
-            } else {
-                foreach (char c in name) {
-                    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-                        sb.Append(c);
-                    } else {
-                        sb.Append("_");
-                    }
-                }
-            }
-
-            // Uniqueify!
-            var newname = sb.ToString().ToLower();
-            var i = 1;
-            while (_resources.ContainsKey(newname)) {
-                newname = sb.ToString().ToLower() + "_" + i.ToString();
-                i++;
-            }
-            return newname;
+            var newName = (name ?? "UnnamedStatement").CleanNamespaceName();
+            return StringUtilities.Uniqueify(newName, _resources);
         }
 
         public static void WriteResourceAndProjectFile(string folder, string appname)
@@ -201,7 +276,7 @@ namespace csharp_dessist
                 .Replace("@@NAMESPACE@@", appname));
 
             // Write out the help notes
-            Trace.Log("Decompilation completed.");
+            _project.Log("Decompilation completed.");
             if (SourceWriter._help_messages.Count > 0) {
                 var helpfile = Path.Combine(folder, "ImportErrors.txt");
                 File.Delete(helpfile);
@@ -210,14 +285,14 @@ namespace csharp_dessist
                         sw.WriteLine(help);
                     }
                 }
-                Trace.Log($"{SourceWriter._help_messages.Count} import errors encountered.");
+                _project.Log($"{SourceWriter._help_messages.Count} import errors encountered.");
                 if (SourceWriter._help_messages.Count > 0)
                 {
-                    Trace.Log($"Import errors written to {helpfile}");
-                    Trace.Log();
-                    Trace.Log("Please consider opening an issue on GitHub to report these import errors to  the DESSIST team.");
-                    Trace.Log("Visit our website online here:");
-                    Trace.Log("    https://github.com/tspence/csharp-dessist");
+                    _project.Log($"Import errors written to {helpfile}");
+                    _project.Log();
+                    _project.Log("Please consider opening an issue on GitHub to report these import errors to  the DESSIST team.");
+                    _project.Log("Visit our website online here:");
+                    _project.Log("    https://github.com/tspence/csharp-dessist");
                 }
             }
         }

@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace csharp_dessist
+namespace Dessist
 {
     public class ConnectionWriter
     {
@@ -47,7 +47,7 @@ namespace csharp_dessist
                             if (v2 != null) {
                                 v2.Attributes.TryGetValue("ConnectionString", out s);
                             } else {
-                                Trace.Log("Missing SmtpConnectionManager value");
+                                _project.Log("Missing SmtpConnectionManager value");
                             }
                         }
                     }
@@ -67,9 +67,9 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="conn_guid_str"></param>
         /// <returns></returns>
-        public static string GetConnectionStringName(string conn_guid_str)
+        public static string GetConnectionStringName(string? conn_guid_str)
         {
-            var connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
+            var connobj = _project.GetObjectByGuid(Guid.Parse(conn_guid_str));
             var connstr = "";
             if (connobj != null) {
                 connstr = connobj.DtsObjectName;
@@ -82,9 +82,9 @@ namespace csharp_dessist
         /// </summary>
         /// <param name="conn_guid_str"></param>
         /// <returns></returns>
-        public static string GetConnectionStringPrefix(string conn_guid_str)
+        public static string GetConnectionStringPrefix(string? conn_guid_str)
         {
-            SsisObject connobj = SsisObject.GetObjectByGuid(Guid.Parse(conn_guid_str));
+            SsisObject connobj = _project.GetObjectByGuid(Guid.Parse(conn_guid_str));
             if (connobj == null) {
                 return "Sql";
             }

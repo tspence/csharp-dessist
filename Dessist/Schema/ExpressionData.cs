@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace csharp_dessist
+namespace Dessist
 {
     public class Token
     {

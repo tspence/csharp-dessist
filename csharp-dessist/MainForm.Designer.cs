@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace csharp_dessist
+namespace Dessist
 {
     partial class MainForm
     {

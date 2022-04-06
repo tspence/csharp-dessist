@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace csharp_dessist
+namespace Dessist
 {
     public class SourceWriter
     {
@@ -40,7 +40,7 @@ namespace csharp_dessist
             _help_messages.Add(s);
 
             // Emit a comment
-            Trace.Log(s);
+            _project.Log(s);
         }
 
         public static void Write(string s, params object[] arg)

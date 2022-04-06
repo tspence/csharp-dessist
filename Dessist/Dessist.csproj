@@ -4,7 +4,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
-        <LangVersion>8</LangVersion>
+        <LangVersion>10</LangVersion>
     </PropertyGroup>
 
 </Project>

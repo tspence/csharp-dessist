@@ -12,7 +12,7 @@ using Dessist;
 // ReSharper disable LocalizableElement
 // ReSharper disable StringLiteralTypo
 
-namespace csharp_dessist
+namespace Dessist
 {
     public partial class MainForm : Form
     {

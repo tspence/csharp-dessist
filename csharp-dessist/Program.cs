@@ -12,7 +12,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
-namespace csharp_dessist
+namespace Dessist
 {
 
     public class Program

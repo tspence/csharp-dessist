@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace csharp_dessist {
+namespace Dessist {
     using System;
     
     
